@@ -1,0 +1,83 @@
+import { contextBridge, ipcRenderer } from "electron";
+
+const api = {
+  // Channel
+  channelName: () => ipcRenderer.invoke("channel-name"),
+  appIdentifier: () => ipcRenderer.invoke("app-identifier"),
+
+  // Runtime (sidecar)
+  startRuntime: () => ipcRenderer.invoke("start-runtime"),
+  runtimePassword: () => ipcRenderer.invoke("runtime-password"),
+  stopRuntime: () => ipcRenderer.invoke("stop-runtime"),
+  serverUrl: () => ipcRenderer.invoke("server-url"),
+
+  // Workspace
+  workspacePath: () => ipcRenderer.invoke("workspace-path"),
+  workspaceBase: () => ipcRenderer.invoke("workspace-base"),
+  setWorkspaceBase: (path: string) => ipcRenderer.invoke("set-workspace-base", path),
+  setWorkspace: (path: string) => ipcRenderer.invoke("set-workspace", path),
+  newDatedWorkspace: (name: string) => ipcRenderer.invoke("new-dated-workspace", name),
+  openWorkspaceBase: () => ipcRenderer.invoke("open-workspace-base"),
+  pickFolder: () => ipcRenderer.invoke("pick-folder"),
+
+  // Artifact / File
+  readArtifact: (rel: string, root?: string) => ipcRenderer.invoke("read-artifact", rel, root),
+  openPath: (rel: string, root?: string) => ipcRenderer.invoke("open-path", rel, root),
+  resolveArtifact: (rel: string) => ipcRenderer.invoke("resolve-artifact", rel),
+  saveTextFile: (filename: string, content: string) => ipcRenderer.invoke("save-text-file", filename, content),
+  openUrl: (url: string) => ipcRenderer.invoke("open-url", url),
+  addFilesToWorkspace: () => ipcRenderer.invoke("add-files-to-workspace"),
+  addTextToWorkspace: (filename: string, content: string) => ipcRenderer.invoke("add-text-to-workspace", filename, content),
+  listNotebooks: (root?: string) => ipcRenderer.invoke("list-notebooks", root),
+  listDir: (rel: string, root?: string) => ipcRenderer.invoke("list-dir", rel, root),
+  writeWorkspaceFile: (rel: string, content: string, root?: string) => ipcRenderer.invoke("write-workspace-file", rel, content, root),
+
+  // Kernel
+  kernelExecute: (code: string, language: string, notebook?: string) =>
+    ipcRenderer.invoke("kernel-execute", code, language, notebook),
+  kernelReset: (language: string, notebook?: string) =>
+    ipcRenderer.invoke("kernel-reset", language, notebook),
+
+  // Jupyter
+  jupyterStatus: () => ipcRenderer.invoke("jupyter-status"),
+  setupJupyter: () => ipcRenderer.invoke("setup-jupyter"),
+  startJupyter: () => ipcRenderer.invoke("start-jupyter"),
+
+  // Provenance
+  recordProvenance: (sessionId: string, callId: string, tool: string, input: unknown, output: unknown, model: string | null) =>
+    ipcRenderer.invoke("record-provenance", sessionId, callId, tool, input, output, model),
+  listProvenance: (path: string) => ipcRenderer.invoke("list-provenance", path),
+  readEnvLockfile: (hash: string) => ipcRenderer.invoke("read-env-lockfile", hash),
+
+  // Preview
+  previewUrl: (rel: string, root?: string) => ipcRenderer.invoke("preview-url", rel, root),
+
+  // Tools
+  detectTools: () => ipcRenderer.invoke("detect-tools"),
+
+  // Shell
+  shellPath: () => ipcRenderer.invoke("shell-path"),
+  shellInfo: () => ipcRenderer.invoke("shell-info"),
+
+  // Store (persistent KV)
+  storeGet: (key: string, scope?: string) => ipcRenderer.invoke("store-get", key, scope),
+  storeSet: (key: string, value: unknown, scope?: string) => ipcRenderer.invoke("store-set", key, value, scope),
+  storeDelete: (key: string, scope?: string) => ipcRenderer.invoke("store-delete", key, scope),
+  storeClear: (scope?: string) => ipcRenderer.invoke("store-clear", scope),
+  storeKeys: (scope?: string) => ipcRenderer.invoke("store-keys", scope),
+  storeLength: (scope?: string) => ipcRenderer.invoke("store-length", scope),
+
+  // Logging
+  logDebug: (message: string) => ipcRenderer.invoke("log-debug", message),
+  logEvent: (level: string, module: string, message: string, data?: unknown) =>
+    ipcRenderer.invoke("log-event", level, module, message, data),
+  exportLogs: () => ipcRenderer.invoke("export-logs"),
+
+  // Updater
+  checkForUpdates: (alertOnUpToDate?: boolean) => ipcRenderer.invoke("check-for-updates", alertOnUpToDate),
+
+  // Window
+  openExternal: (url: string) => ipcRenderer.invoke("open-url", url),
+};
+
+contextBridge.exposeInMainWorld("electronAPI", api);

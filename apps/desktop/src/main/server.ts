@@ -1,0 +1,212 @@
+import { randomUUID } from "node:crypto";
+import { accessSync, cpSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { app } from "electron";
+import type { ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
+import { enrichedPath } from "./shell_env";
+
+let child: ChildProcess | null = null;
+let currentUrl: string | null = null;
+let currentPort: number | null = null;
+let serverPassword = "";
+
+export function getServerPassword(): string {
+  if (!serverPassword) serverPassword = randomUUID();
+  return serverPassword;
+}
+
+export function getServerUrl(): string | null {
+  return currentUrl;
+}
+
+function runtimeRoot(): string {
+  const dir = join(app.getPath("userData"), "runtime");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function xdgConfigHome(): string {
+  return join(runtimeRoot(), "xdg-config");
+}
+
+function activeWorkspaceFile(): string {
+  return join(runtimeRoot(), "active-workspace.txt");
+}
+
+function baseWorkspaceFile(): string {
+  return join(runtimeRoot(), "base-workspace.txt");
+}
+
+export function workspaceDir(): string {
+  const file = activeWorkspaceFile();
+  try {
+    const dir = readFileSync(file, "utf-8").trim();
+    if (existsSync(dir)) return dir;
+  } catch { /* fall through */ }
+  return baseWorkspaceDir();
+}
+
+export function baseWorkspaceDir(): string {
+  const file = baseWorkspaceFile();
+  try {
+    const dir = readFileSync(file, "utf-8").trim();
+    if (existsSync(dir)) return dir;
+  } catch { /* fall through */ }
+  const docs = join(app.getPath("documents"), "Workbench");
+  mkdirSync(docs, { recursive: true });
+  return docs;
+}
+
+export function setActiveWorkspace(path: string): void {
+  writeFileSync(activeWorkspaceFile(), path);
+}
+
+export function setBaseWorkspace(path: string): void {
+  writeFileSync(baseWorkspaceFile(), path);
+}
+
+function bundledProfileSource(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "app-config");
+  }
+  return join(app.getAppPath(), "..", "app-config", ".opencode");
+}
+
+function sidecarBinaryPath(): string {
+  const binaryName = process.platform === "win32" ? "opencode.exe" : "opencode";
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "binaries", binaryName);
+  }
+  return join(app.getAppPath(), "binaries", binaryName);
+}
+
+export function deployBundledProfile(): void {
+  const source = bundledProfileSource();
+  const target = join(xdgConfigHome(), "opencode");
+  if (!existsSync(source)) {
+    log("profile", "deploy", `source not found: ${source}`, "warn");
+    return;
+  }
+  if (existsSync(target)) rmSync(target, { recursive: true, force: true });
+  cpSync(source, target, { recursive: true });
+  log("profile", "deploy", `deployed ${source} -> ${target}`);
+}
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.on("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const addr = srv.address();
+      if (typeof addr !== "object" || !addr) {
+        srv.close();
+        reject(new Error("Failed to get port"));
+        return;
+      }
+      const port = addr.port;
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
+export async function startSidecar(): Promise<string> {
+  if (child && currentUrl) return currentUrl;
+  const port = currentPort ?? (await freePort());
+  currentPort = port;
+  const url = `http://127.0.0.1:${port}`;
+
+  const root = runtimeRoot();
+  const cfg = join(root, "xdg-config");
+  const data = join(root, "xdg-data");
+  const cache = join(root, "xdg-cache");
+  const state = join(root, "xdg-state");
+  const workspace = workspaceDir();
+  for (const d of [cfg, data, cache, state]) mkdirSync(d, { recursive: true });
+
+  deployBundledProfile();
+
+  const password = getServerPassword();
+
+  const env: Record<string, string> = {
+    OPENCODE_SERVER_PASSWORD: password,
+    XDG_CONFIG_HOME: cfg,
+    XDG_DATA_HOME: data,
+    XDG_CACHE_HOME: cache,
+    XDG_STATE_HOME: state,
+    HOME: homedir(),
+    PATH: enrichedPath(),
+  };
+
+  const sidecarPath = sidecarBinaryPath();
+
+  if (!existsSync(sidecarPath)) {
+    const msg = `sidecar binary not found: ${sidecarPath}`;
+    log("server", "error", msg, "error");
+    throw new Error(msg);
+  }
+
+  try {
+    accessSync(sidecarPath, fsConstants.X_OK);
+  } catch {
+    const msg = `sidecar not executable: ${sidecarPath}`;
+    log("server", "error", msg, "error");
+    throw new Error(msg);
+  }
+
+  const cmd = spawn(sidecarPath, ["serve", "--hostname", "127.0.0.1", "--port", String(port)], {
+    env: { ...process.env, ...env },
+    cwd: workspace,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let spawnError: Error | null = null;
+  cmd.on("error", (err) => {
+    spawnError = err;
+    log("server", "error", `spawn failed: ${err.message}`, "error");
+    child = null;
+    currentUrl = null;
+    currentPort = null;
+  });
+
+  cmd.stdout?.on("data", (d: Buffer) => {
+    log("server", "stdout", d.toString().trim());
+  });
+  cmd.stderr?.on("data", (d: Buffer) => {
+    log("server", "stderr", d.toString().trim(), "warn");
+  });
+  cmd.on("exit", (code) => {
+    log("server", "sidecar exited", { code }, "warn");
+    child = null;
+    currentUrl = null;
+    currentPort = null;
+  });
+
+  child = cmd;
+  currentUrl = url;
+  return url;
+}
+
+export function stopSidecar(): void {
+  if (child) {
+    child.kill();
+    child = null;
+  }
+  currentUrl = null;
+}
+
+function log(
+  module: string,
+  stream: string,
+  message: string,
+  level: "info" | "warn" | "error" = "info",
+): void {
+  try {
+    // dynamic import to avoid circular deps
+    import("./logging").then(({ getLogger }) =>
+      getLogger()[level](`[${module}] [${stream}] ${message}`),
+    );
+  } catch { /* ignore logging failures */ }
+}
