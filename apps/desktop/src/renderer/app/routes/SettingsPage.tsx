@@ -19,13 +19,14 @@ export function SettingsPage() {
   const setTheme = useUiStore((s) => s.setTheme);
   const locale = useUiStore((s) => s.locale);
   const setLocale = useUiStore((s) => s.setLocale);
-  const { status, serverUrl, setServerUrl, connect, disconnect, defaultModel } = useRuntimeStore();
+  const { status, serverUrl, setServerUrl, connect, disconnect, defaultModel, providers, loadProviders, setDefaultModel } = useRuntimeStore();
   const connected = status === "ready";
   const [wsPath, setWsPath] = useState<string | null>(null);
 
   useEffect(() => {
     void workspaceBase().then(setWsPath);
-  }, []);
+    if (connected) void loadProviders();
+  }, [connected, loadProviders]);
 
   const changeWorkspaceBase = async () => {
     const picked = await pickFolder();
@@ -148,6 +149,28 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
+        </Card>
+
+        {/* ---- Model ---- */}
+        <Card title={t("settings.model")} hint={t("settings.modelHint")}>
+          <select
+            value={defaultModel ?? ""}
+            onChange={(e) => { void setDefaultModel(e.target.value); }}
+            className={inputCls("w-full")}
+          >
+            {providers.map((p) => (
+              <optgroup key={p.id} label={p.name}>
+                {p.models.map((m) => {
+                  const modelId = `${p.id}/${m.id}`;
+                  return (
+                    <option key={modelId} value={modelId}>
+                      {m.name}
+                    </option>
+                  );
+                })}
+              </optgroup>
+            ))}
+          </select>
         </Card>
       </div>
     </div>

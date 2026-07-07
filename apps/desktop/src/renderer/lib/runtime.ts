@@ -8,6 +8,7 @@ import {
   type OpenCodeEvent,
   type PermissionAskedEvent,
   type PermissionReply,
+  type ProviderInfo,
   type QuestionAskedEvent,
   type SessionMeta,
   type SkillInfo,
@@ -73,6 +74,8 @@ interface RuntimeState {
   commands: CommandInfo[];
   /** Configured default model ("provider/model"), or null when unset. */
   defaultModel: string | null;
+  /** Available providers and their models. */
+  providers: ProviderInfo[];
   tools: ToolStatus[];
   hiddenExamples: string[];
   error: string | null;
@@ -94,6 +97,8 @@ interface RuntimeState {
   replyPermission: (requestId: string, reply: PermissionReply) => Promise<void>;
   setServerUrl: (url: string) => void;
   loadCatalog: () => Promise<void>;
+  loadProviders: () => Promise<void>;
+  setDefaultModel: (model: string) => Promise<void>;
   detectTools: () => Promise<void>;
   connect: () => Promise<void>;
   connectRetry: (tries?: number) => Promise<void>;
@@ -351,6 +356,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   agents: [],
   commands: [],
   defaultModel: null,
+  providers: [],
   tools: [],
   hiddenExamples: initialHidden(),
   error: null,
@@ -437,13 +443,32 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       ]);
       set({ agents, defaultModel, commands });
       let skills = firstSkills;
-      // The first workspace-scoped /api/skill call triggers OpenCode's lazy
-      // instance init and can answer before the scan finishes — poll briefly.
       for (let i = 0; skills.length === 0 && i < 4; i++) {
         await sleep(400);
         skills = await client.listSkills();
       }
       set({ skills });
+      void get().loadProviders();
+    } catch {
+      /* ignore transient failures */
+    }
+  },
+
+  loadProviders: async () => {
+    if (!client) return;
+    try {
+      const providers = await client.listProviders();
+      set({ providers });
+    } catch {
+      /* ignore transient failures */
+    }
+  },
+
+  setDefaultModel: async (model) => {
+    if (!client) return;
+    try {
+      await client.setDefaultModel(model);
+      set({ defaultModel: model });
     } catch {
       /* ignore transient failures */
     }

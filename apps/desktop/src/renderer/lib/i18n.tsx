@@ -41,6 +41,8 @@ const en: TranslationMap = {
   "settings.reveal": "Reveal",
   "settings.appearance": "Appearance",
   "settings.language": "Language",
+  "settings.model": "Model",
+  "settings.modelHint": "Select the default model for the agent",
   "settings.workspaceSet": "New sessions will be created in this folder.",
   "settings.workspaceError": "Could not set the folder:",
 
@@ -84,6 +86,8 @@ const zhCN: TranslationMap = {
   "settings.reveal": "显示",
   "settings.appearance": "外观",
   "settings.language": "语言",
+  "settings.model": "模型",
+  "settings.modelHint": "选择 Agent 默认模型",
   "settings.workspaceSet": "新会话将在此文件夹中创建。",
   "settings.workspaceError": "无法设置文件夹：",
 
