@@ -1,11 +1,11 @@
 # Workbench
 
 **A config-driven OpenCode desktop shell.** Drop a complete `.opencode/` profile
-into `app-config/`, run `tauri build`, and you get a dedicated desktop app for
-that configuration — providers, model, skills, agents, commands, MCP, and
+into `app-config/`, build, and you get a dedicated desktop app for that
+configuration — providers, model, skills, agents, commands, MCP, and
 permissions all decided by the bundled profile, not configurable at runtime.
 
-Built on [Tauri 2](https://tauri.app) + React + TypeScript, with
+Built on [Electron](https://www.electronjs.org) + React + TypeScript, with
 [OpenCode](https://opencode.ai) as the bundled agent runtime (single-binary
 sidecar, pinned and managed by the app).
 
@@ -16,8 +16,9 @@ ships no model/provider/skill configuration UI — everything comes from the
 packager's `.opencode/` profile. End users get a focused, locked-down app; the
 packager decides what it can do.
 
-- **Config-driven** — `app-config/.opencode/` is bundled as a Tauri resource and
-  deployed to the app's private OpenCode config dir on every sidecar start.
+- **Config-driven** — `app-config/.opencode/` is bundled as an Electron extra
+  resource and deployed to the app's private OpenCode config dir on every
+  startup.
 - **Local-first** — workspace files, code execution, session history, and
   provenance stay on the machine; only conversation turns reach the model
   provider.
@@ -35,43 +36,43 @@ packager decides what it can do.
 1. Put your OpenCode configuration in `app-config/.opencode/` — `opencode.json`
    (providers, model, permission), `skills/`, `agents/`, `commands/`. See
    [`app-config/.opencode/README.md`](./app-config/.opencode/README.md).
-2. Fetch the pinned sidecars (kept out of git):
+2. Fetch the pinned sidecar (kept out of git):
 
    ```bash
    pnpm install
    bash scripts/dev/fetch-opencode.sh   # the OpenCode agent runtime
-   bash scripts/dev/fetch-uv.sh         # uv, for isolated Python/Jupyter envs
    ```
 
 3. Build an installer:
 
    ```bash
-   pnpm --filter @workbench/desktop tauri build
+   pnpm build
+   pnpm --filter @workbench/desktop package:mac    # macOS
+   pnpm --filter @workbench/desktop package:win    # Windows
+   pnpm --filter @workbench/desktop package:linux  # Linux
    ```
 
-The resulting `.dmg` / `.exe` / `.msi` / `.deb` / `.rpm` is a dedicated desktop
-app for your `.opencode` profile.
+The resulting `.dmg` / `.exe` / `.AppImage` is a dedicated desktop app for your
+`.opencode` profile.
 
 ## Brand it
 
 The shipped name is the placeholder **Workbench** (`com.workbench.app`). To
-rebrand for your product, change `productName` / `identifier` / window `title`
-in `apps/desktop/src-tauri/tauri.conf.json`, the app icon in
-`apps/desktop/src-tauri/icons/`, the sidebar label in
-`apps/desktop/src/components/sidebar/Sidebar.tsx`, and the `<title>` in
-`apps/desktop/index.html`.
+rebrand for your product, change `appId` / `productName` in
+`apps/desktop/electron-builder.config.ts`, the app icon in
+`apps/desktop/build/`, and the sidebar label in
+`apps/desktop/src/renderer/components/sidebar/Sidebar.tsx`.
 
 ## Repository layout
 
 | Path | Purpose |
 | --- | --- |
 | `app-config/.opencode/` | The OpenCode profile the app bundles and deploys |
-| `apps/desktop/` | Tauri 2 + React shell (`src/` frontend, `src-tauri/` Rust) |
+| `apps/desktop/` | Electron + React shell (`src/` frontend, `src/main/` main process) |
 | `packages/sdk/` | `OpenCodeClient` SDK wrapper (isolates the UI from the runtime) |
 | `packages/shared/` | Shared domain types and the chart design system |
 | `runtime/kernel/` | Python and R kernel bridges |
-| `scripts/dev/` | Sidecar fetchers (opencode, uv) |
-| `.github/workflows/build.yml` | CI: builds mac/Windows/Linux installers on `v*` tags |
+| `scripts/dev/` | Sidecar fetcher (opencode) |
 
 ## Safety defaults
 
