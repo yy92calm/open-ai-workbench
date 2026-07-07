@@ -5,14 +5,11 @@ import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { Toaster } from "@/components/ui/Toaster";
 import { mockProject } from "@/lib/mock";
 import { useRuntimeStore } from "@/lib/runtime";
-import { ensureJupyter, openExternal } from "@/lib/electron";
+import { openExternal } from "@/lib/electron";
 
 export function AppShell() {
-  // In the packaged desktop app, auto-start the bundled OpenCode and connect,
-  // and bring the Jupyter server back up if the user enabled it before.
   useEffect(() => {
     void useRuntimeStore.getState().bootstrap();
-    void ensureJupyter();
   }, []);
 
   // External links open in the system browser. Navigating the webview away

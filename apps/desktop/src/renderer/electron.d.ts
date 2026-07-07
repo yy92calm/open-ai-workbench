@@ -29,10 +29,6 @@ export interface ElectronAPI {
   kernelExecute: (code: string, language: string, notebook?: string) => Promise<{ stdout: string; stderr: string; exitCode: number | null }>;
   kernelReset: (language: string, notebook?: string) => Promise<void>;
 
-  jupyterStatus: () => Promise<{ installed: boolean; running: boolean; url: string | null; token: string | null; mcpCommand: string | null }>;
-  setupJupyter: () => Promise<void>;
-  startJupyter: () => Promise<{ installed: boolean; running: boolean; url: string | null; token: string | null; mcpCommand: string | null }>;
-
   recordProvenance: (sessionId: string, callId: string, tool: string, input: unknown, output: unknown, model: string | null) => Promise<void>;
   listProvenance: (path: string) => Promise<unknown[]>;
   readEnvLockfile: (hash: string) => Promise<string>;

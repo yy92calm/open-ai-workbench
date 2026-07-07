@@ -7,7 +7,6 @@ import { getLogger } from "./logging";
 import { createMainWindow, setDockIcon, getMainWindow } from "./windows";
 import { setupAutoUpdater } from "./updater";
 import { stopSidecar, deployBundledProfile } from "./server";
-import { killJupyter } from "./jupyter";
 import { killAllKernels } from "./kernel";
 import { stopPreviewServer } from "./preview_server";
 
@@ -39,7 +38,6 @@ app.on("second-instance", () => {
 
 app.on("before-quit", () => {
   stopSidecar();
-  killJupyter();
   killAllKernels();
   stopPreviewServer();
 });

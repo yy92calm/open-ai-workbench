@@ -37,39 +37,6 @@ export async function addTextToWorkspace(filename: string, content: string): Pro
   return api().addTextToWorkspace(filename, content);
 }
 
-export interface JupyterStatus {
-  installed: boolean;
-  running: boolean;
-  url: string | null;
-  token: string | null;
-  mcp_command: string | null;
-}
-
-export async function jupyterStatus(): Promise<JupyterStatus | null> {
-  try {
-    return await api().jupyterStatus() as JupyterStatus | null;
-  } catch {
-    return null;
-  }
-}
-
-export async function setupJupyter(): Promise<void> {
-  await api().setupJupyter();
-}
-
-export async function startJupyter(): Promise<JupyterStatus> {
-  return await api().startJupyter() as JupyterStatus;
-}
-
-export async function ensureJupyter(): Promise<void> {
-  try {
-    const s = await jupyterStatus();
-    if (s?.installed && !s.running) await startJupyter();
-  } catch {
-    /* Jupyter is optional — never block the app on it */
-  }
-}
-
 export async function openExternal(url: string): Promise<void> {
   if (!/^https?:\/\//i.test(url)) return;
   try {

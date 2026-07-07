@@ -3,7 +3,7 @@ import { ArtifactInspector } from "./ArtifactInspector";
 import { NotebookInspector } from "./NotebookInspector";
 import { PdfInspector } from "./PdfInspector";
 import { FilePreviewInspector } from "./FilePreviewInspector";
-import { NotebookEditor } from "@/components/notebook/NotebookEditor";
+import { StarboardEditor } from "@/components/notebook/StarboardEditor";
 
 /** Right pane. Renders the correct inspector variant for the active session. */
 export function InspectorShell({
@@ -25,7 +25,7 @@ export function InspectorShell({
       {inspector.variant === "pdf" && <PdfInspector data={inspector} onClose={onClose} />}
       {inspector.variant === "file" && <FilePreviewInspector data={inspector} onClose={onClose} />}
       {inspector.variant === "notebook-file" && (
-        <NotebookEditor path={inspector.path} root={inspector.root} onClose={onClose} />
+        <StarboardEditor path={inspector.path} root={inspector.root} onClose={onClose} />
       )}
     </div>
   );

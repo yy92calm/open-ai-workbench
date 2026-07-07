@@ -5,7 +5,6 @@ import { getLogger, exportDebugLogs } from "./logging";
 import { startSidecar, stopSidecar, getServerPassword, workspaceDir, baseWorkspaceDir, setActiveWorkspace, setBaseWorkspace, getServerUrl } from "./server";
 import * as artifactFile from "./artifact_file";
 import * as kernel from "./kernel";
-import * as jupyter from "./jupyter";
 import * as provenance from "./provenance";
 import { startPreviewServer, stopPreviewServer, previewToken, previewUrl } from "./preview_server";
 import { detectShells, detectTools, enrichedPath } from "./shell_env";
@@ -37,7 +36,6 @@ export function registerIpcHandlers(): void {
   });
   ipcMain.handle("set-workspace", (_e, path: string) => {
     setActiveWorkspace(path);
-    jupyter.rerootJupyter();
     return workspaceDir();
   });
   ipcMain.handle("new-dated-workspace", (_e, name: string) => {
@@ -46,7 +44,6 @@ export function registerIpcHandlers(): void {
     }
     const dir = require("node:path").join(baseWorkspaceDir(), name);
     setActiveWorkspace(dir);
-    jupyter.rerootJupyter();
     return dir;
   });
   ipcMain.handle("open-workspace-base", () => {
@@ -94,11 +91,6 @@ export function registerIpcHandlers(): void {
     kernel.kernelExecute(code, language, notebook));
   ipcMain.handle("kernel-reset", (_e, language: string, notebook?: string) =>
     kernel.kernelReset(language, notebook));
-
-  // ---- Jupyter ----
-  ipcMain.handle("jupyter-status", () => jupyter.jupyterStatus());
-  ipcMain.handle("setup-jupyter", () => jupyter.setupJupyter());
-  ipcMain.handle("start-jupyter", async () => jupyter.startJupyter());
 
   // ---- Provenance ----
   ipcMain.handle("record-provenance", (_e, sessionId: string, callId: string, tool: string, input: unknown, output: unknown, model: string | null) =>

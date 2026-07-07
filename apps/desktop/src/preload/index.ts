@@ -38,11 +38,6 @@ const api = {
   kernelReset: (language: string, notebook?: string) =>
     ipcRenderer.invoke("kernel-reset", language, notebook),
 
-  // Jupyter
-  jupyterStatus: () => ipcRenderer.invoke("jupyter-status"),
-  setupJupyter: () => ipcRenderer.invoke("setup-jupyter"),
-  startJupyter: () => ipcRenderer.invoke("start-jupyter"),
-
   // Provenance
   recordProvenance: (sessionId: string, callId: string, tool: string, input: unknown, output: unknown, model: string | null) =>
     ipcRenderer.invoke("record-provenance", sessionId, callId, tool, input, output, model),

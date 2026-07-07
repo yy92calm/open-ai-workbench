@@ -4,7 +4,7 @@ import { addTextToWorkspace, isTauri } from "@/lib/tauri";
 import { listNotebooks, type NotebookEntry } from "@/lib/artifactFile";
 import { emptyIpynb } from "@/lib/notebook-file";
 import type { KernelLanguage } from "@/lib/kernel";
-import { NotebookEditor } from "@/components/notebook/NotebookEditor";
+import { StarboardEditor } from "@/components/notebook/StarboardEditor";
 import { toast } from "@/lib/toast";
 
 /**
@@ -53,7 +53,7 @@ export function NotebooksPage() {
 
   if (open) {
     return (
-      <NotebookEditor
+      <StarboardEditor
         path={open.path}
         root={open.root}
         onBack={() => {
