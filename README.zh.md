@@ -79,4 +79,9 @@ provider、模型、skills、agents、命令、MCP、权限全部由打包时的
 
 [MIT](./LICENSE)。内置的第三方 skill 和连接器各有自己的许可。
 
+## 致谢
+
+本项目借鉴了 [Open Science](https://github.com/ai4s-research/open-science) 和
+[OpenCode](https://github.com/anomalyco/opencode) 的设计思路，但与两个项目无直接关联。
+
 > 这是 beta 工具。依赖其输出前请自行验证。

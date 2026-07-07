@@ -87,4 +87,10 @@ rebrand for your product, change `appId` / `productName` in
 [MIT](./LICENSE). Bundled third-party skills and connectors carry their own
 licenses.
 
+## Acknowledgements
+
+This project draws inspiration from [Open Science](https://github.com/ai4s-research/open-science)
+and [OpenCode](https://github.com/anomalyco/opencode), but is not affiliated
+with or endorsed by either project.
+
 > This is beta tooling. Verify outputs before relying on them.
