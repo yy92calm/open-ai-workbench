@@ -34,6 +34,7 @@ import { provenanceInputFromEvent, recordProvenance } from "./provenance";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const URL_KEY = "workbench.opencodeUrl";
 const HIDDEN_KEY = "workbench.hiddenExamples";
+const FAVORITES_KEY = "workbench.favoriteSessions";
 
 function initialUrl(): string {
   if (typeof window === "undefined") return DEFAULT_OPENCODE_URL;
@@ -43,6 +44,14 @@ function initialHidden(): string[] {
   if (typeof window === "undefined") return [];
   try {
     return JSON.parse(window.localStorage.getItem(HIDDEN_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+function initialFavorites(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(window.localStorage.getItem(FAVORITES_KEY) ?? "[]");
   } catch {
     return [];
   }
@@ -78,6 +87,7 @@ interface RuntimeState {
   providers: ProviderInfo[];
   tools: ToolStatus[];
   hiddenExamples: string[];
+  favoriteSessions: string[];
   error: string | null;
   /** Pending interactive requests the agent is blocked on, newest last. */
   questions: QuestionAskedEvent[];
@@ -359,6 +369,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   providers: [],
   tools: [],
   hiddenExamples: initialHidden(),
+  favoriteSessions: initialFavorites(),
   error: null,
   questions: [],
   permissions: [],
@@ -373,10 +384,38 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 
   // All three write the CURRENT session's pane (DRAFT_KEY on a draft), keeping
   // the artifact inspector and the Files browser mutually exclusive.
-  openArtifact: (artifact) =>
-    set((s) => ({
-      panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false } },
-    })),
+  openArtifact: (artifact) => {
+    // Try to infer the session folder from the artifact path (e.g.
+    // "2026-07-05-0319/nature.ipynb"). If a matching session exists, open
+    // that session so the pane and workspace follow the notebook being
+    // inspected. Do this asynchronously so callers don't block on session
+    // switching.
+    try {
+      const seg = artifact?.path?.split("/")[0];
+      if (seg) {
+        const match = (get().sessions || []).find(
+          (s) => s.directory?.endsWith(seg) || s.id === seg || s.title === seg,
+        );
+        if (match) {
+          // Open the session (async) and then restore the pane onto that
+          // session id. Fire-and-forget: errors are non-fatal.
+          void (async () => {
+            try {
+              await get().openSession(match.id);
+              set((s) => ({ panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false } } }));
+            } catch {
+              // Fallback: apply to the current pane if session switch failed.
+              set((s) => ({ panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false } } }));
+            }
+          })();
+          return;
+        }
+      }
+    } catch {
+      // ignore parse errors and fall through to default behavior
+    }
+    set((s) => ({ panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false } } }));
+  },
   closeArtifact: () =>
     set((s) => {
       const key = s.currentId ?? DRAFT_KEY;
@@ -913,6 +952,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     });
   },
 
+  toggleFavoriteSession: (id) => {
+    const current = get().favoriteSessions;
+    const next = current.includes(id)
+      ? current.filter((x) => x !== id)
+      : [...current, id];
+    if (typeof window !== "undefined") window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+    set({ favoriteSessions: next });
+  },
   hideExample: (id) => {
     const next = Array.from(new Set([...get().hiddenExamples, id]));
     if (typeof window !== "undefined") window.localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));

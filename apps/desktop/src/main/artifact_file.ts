@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { shell } from "electron";
 import { workspaceDir, baseWorkspaceDir } from "./server";
@@ -10,11 +10,19 @@ export interface DirEntry {
   is_dir: boolean;
   is_file: boolean;
   size: number;
+  modified: string;
 }
 
 export interface NotebookEntry {
   name: string;
   path: string;
+  modified: string;
+}
+
+export interface SearchResult {
+  path: string;
+  name: string;
+  is_dir: boolean;
   modified: string;
 }
 
@@ -149,4 +157,53 @@ export function writeWorkspaceFile(rel: string, content: string, root?: string):
   if (!file) return;
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, content, "utf-8");
+}
+
+export function renameWorkspaceFile(oldRel: string, newRel: string, root?: string): boolean {
+  const oldFile = resolveUnderRoot(oldRel, root, true);
+  const newFile = resolveUnderRoot(newRel, root, true);
+  if (!oldFile || !newFile) return false;
+  if (oldFile === newFile) return false;
+  if (existsSync(newFile)) return false;
+  mkdirSync(dirname(newFile), { recursive: true });
+  renameSync(oldFile, newFile);
+  return true;
+}
+
+export function deleteWorkspaceFile(rel: string, root?: string): boolean {
+  const file = resolveUnderRoot(rel, root, true);
+  if (!file || !existsSync(file)) return false;
+  const stat = statSync(file);
+  if (stat.isDirectory()) {
+    rmSync(file, { recursive: true, force: true });
+  } else {
+    rmSync(file, { force: true });
+  }
+  return true;
+}
+
+export function searchWorkspace(query: string, root?: string): SearchResult[] {
+  const base = rootDir(root);
+  if (!existsSync(base) || !query.trim()) return [];
+  const results: SearchResult[] = [];
+  const q = query.toLowerCase();
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) continue;
+      const full = join(dir, entry.name);
+      const rel = relative(base, full);
+      const match = entry.name.toLowerCase().includes(q) || rel.toLowerCase().includes(q);
+      if (match) {
+        results.push({ path: rel, name: entry.name, is_dir: entry.isDirectory(), modified: statSync(full).mtime.toISOString() });
+      }
+      if (entry.isDirectory()) walk(full);
+    }
+  };
+  try {
+    walk(base);
+  } catch {
+    return [];
+  }
+  results.sort((a, b) => b.modified.localeCompare(a.modified));
+  return results;
 }

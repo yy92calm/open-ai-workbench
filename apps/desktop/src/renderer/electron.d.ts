@@ -23,8 +23,11 @@ export interface ElectronAPI {
   addFilesToWorkspace: () => Promise<string[]>;
   addTextToWorkspace: (filename: string, content: string) => Promise<string>;
   listNotebooks: (root?: string) => Promise<{ name: string; path: string; modified: string }[]>;
-  listDir: (rel: string, root?: string) => Promise<{ name: string; is_dir: boolean; is_file: boolean; size: number }[]>;
+  listDir: (rel: string, root?: string) => Promise<{ name: string; is_dir: boolean; is_file: boolean; size: number; modified: string }[]>;
   writeWorkspaceFile: (rel: string, content: string, root?: string) => Promise<void>;
+  renameWorkspaceFile: (oldRel: string, newRel: string, root?: string) => Promise<boolean>;
+  deleteWorkspaceFile: (rel: string, root?: string) => Promise<boolean>;
+  searchWorkspace: (query: string, root?: string) => Promise<{ path: string; name: string; is_dir: boolean; modified: string }[]>;
 
   kernelExecute: (code: string, language: string, notebook?: string) => Promise<{ stdout: string; stderr: string; exitCode: number | null }>;
   kernelReset: (language: string, notebook?: string) => Promise<void>;

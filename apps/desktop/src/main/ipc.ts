@@ -85,6 +85,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("list-dir", (_e, rel: string, root?: string) => artifactFile.listDir(rel, root));
   ipcMain.handle("write-workspace-file", (_e, rel: string, content: string, root?: string) =>
     artifactFile.writeWorkspaceFile(rel, content, root));
+  ipcMain.handle("rename-workspace-file", (_e, oldRel: string, newRel: string, root?: string) =>
+    artifactFile.renameWorkspaceFile(oldRel, newRel, root));
+  ipcMain.handle("delete-workspace-file", (_e, rel: string, root?: string) =>
+    artifactFile.deleteWorkspaceFile(rel, root));
+  ipcMain.handle("search-workspace", (_e, query: string, root?: string) =>
+    artifactFile.searchWorkspace(query, root));
 
   // ---- Kernel ----
   ipcMain.handle("kernel-execute", (_e, code: string, language: string, notebook?: string) =>

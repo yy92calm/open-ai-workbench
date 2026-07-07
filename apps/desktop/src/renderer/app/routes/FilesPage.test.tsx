@@ -1,7 +1,31 @@
+/** @vitest-environment jsdom */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DirEntry } from "@/lib/artifactFile";
+
+// Mock the runtime hook early so the component import doesn't require the
+// real alias resolution in the test environment.
+vi.mock("@/lib/runtime", () => {
+  const mockOpen = vi.fn();
+  const fn: any = (sel: any) => sel({ workspace: null });
+  fn.getState = () => ({ openArtifact: mockOpen, workspace: null });
+  return { useRuntimeStore: fn };
+});
+
+// Mock artifacts helper used by FilesPage (avoids Vite alias resolution in tests)
+vi.mock("@/lib/artifacts", () => ({
+  extOf: (name: string) => name.split(".").pop() ?? "",
+  extToKind: (ext: string) => (ext === "py" ? "code" : "text"),
+  previewKindForName: (_: string) => "text",
+  refToArtifactBlock: (path: string) => ({ path }),
+}));
+vi.mock("@/lib/tauri", () => ({ isTauri: false, workspaceBase: async () => "/tmp" }));
+vi.mock("@/components/thread/WorkspaceChip", () => ({ baseName: (p: string | null) => (p ? p.split("/").pop() : "Workspace") }));
+vi.mock("@/components/notebook/StarboardEditor", () => ({ StarboardEditor: ({ path, root, onBack }: any) => (
+  <div data-testid="starboard">starboard:{path} root:{root}</div>
+) }));
+vi.mock("@/lib/cn", () => ({ cn: (...xs: any[]) => xs.filter(Boolean).join(" ") }));
 import { FilesPage } from "./FilesPage";
 
 const listDir = vi.fn();
@@ -28,6 +52,11 @@ describe("FilesPage", () => {
   beforeEach(() => {
     listDir.mockReset();
     listDir.mockImplementation((rel: string) => Promise.resolve(rel === "data" ? sub : root));
+    // ensure openArtifact is a mock so we can assert it's called
+    return (async () => {
+      const mod = await import("@/lib/runtime");
+      mod.useRuntimeStore.getState().openArtifact = vi.fn();
+    })();
   });
 
   it("lists workspace entries with sizes and opens a file in the previewer", async () => {
@@ -54,5 +83,12 @@ describe("FilesPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Workspace" }));
     await waitFor(() => expect(screen.getByText("figure.png")).toBeInTheDocument());
+  });
+
+  it("calls runtime.openArtifact when 'Open in session' is clicked", async () => {
+    render(<FilesPage />);
+    const btn = await screen.findByTitle("Open in session");
+    await userEvent.click(btn);
+    expect(useRuntimeStore.getState().openArtifact).toHaveBeenCalled();
   });
 });

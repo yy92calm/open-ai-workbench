@@ -31,6 +31,9 @@ const api = {
   listNotebooks: (root?: string) => ipcRenderer.invoke("list-notebooks", root),
   listDir: (rel: string, root?: string) => ipcRenderer.invoke("list-dir", rel, root),
   writeWorkspaceFile: (rel: string, content: string, root?: string) => ipcRenderer.invoke("write-workspace-file", rel, content, root),
+  renameWorkspaceFile: (oldRel: string, newRel: string, root?: string) => ipcRenderer.invoke("rename-workspace-file", oldRel, newRel, root),
+  deleteWorkspaceFile: (rel: string, root?: string) => ipcRenderer.invoke("delete-workspace-file", rel, root),
+  searchWorkspace: (query: string, root?: string) => ipcRenderer.invoke("search-workspace", query, root),
 
   // Kernel
   kernelExecute: (code: string, language: string, notebook?: string) =>

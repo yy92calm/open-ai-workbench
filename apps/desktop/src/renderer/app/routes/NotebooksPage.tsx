@@ -5,6 +5,8 @@ import { listNotebooks, type NotebookEntry } from "@/lib/artifactFile";
 import { emptyIpynb } from "@/lib/notebook-file";
 import type { KernelLanguage } from "@/lib/kernel";
 import { StarboardEditor } from "@/components/notebook/StarboardEditor";
+import { refToArtifactBlock } from "@/lib/artifacts";
+import { useRuntimeStore } from "@/lib/runtime";
 import { toast } from "@/lib/toast";
 
 /**
@@ -121,22 +123,34 @@ export function NotebooksPage() {
             const folder = slash >= 0 ? e.path.slice(0, slash) : "";
             const name = slash >= 0 ? e.path.slice(slash + 1) : e.path;
             return (
-              <button
-                key={e.path}
-                onClick={() => setOpen({ path: e.path, root: "base" })}
-                className="flex w-full items-center gap-2.5 rounded-card border border-border bg-surface px-4 py-2.5 text-left hover:bg-surface-2"
-              >
-                <NotebookPen size={15} className="shrink-0 text-muted" />
-                <span className="truncate text-sm text-text">{name}</span>
-                {folder && (
-                  <span className="max-w-[40%] truncate rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">
-                    {folder}
+              <div key={e.path} className="relative group">
+                <button
+                  onClick={() => setOpen({ path: e.path, root: "base" })}
+                  className="flex w-full items-center gap-2.5 rounded-card border border-border bg-surface px-4 py-2.5 text-left hover:bg-surface-2"
+                >
+                  <NotebookPen size={15} className="shrink-0 text-muted" />
+                  <span className="truncate text-sm text-text">{name}</span>
+                  {folder && (
+                    <span className="max-w-[40%] truncate rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">
+                      {folder}
+                    </span>
+                  )}
+                  <span className="ml-auto shrink-0 text-xs text-muted">
+                    {new Date(e.modified * 1000).toLocaleString()}
                   </span>
-                )}
-                <span className="ml-auto shrink-0 text-xs text-muted">
-                  {new Date(e.modified * 1000).toLocaleString()}
-                </span>
-              </button>
+                </button>
+                <button
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    useRuntimeStore.getState().openArtifact(refToArtifactBlock(e.path));
+                  }}
+                  title="Open in session"
+                  aria-label={`Open ${e.path} in session`}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 hidden rounded p-1 text-muted hover:bg-surface-2 group-hover:block"
+                >
+                  <NotebookPen size={13} />
+                </button>
+              </div>
             );
           })}
         </div>

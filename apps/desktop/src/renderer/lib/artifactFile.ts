@@ -80,11 +80,45 @@ export async function listDir(rel: string, root?: FileRoot): Promise<DirEntry[]>
   try {
     const entries = await electronAPI().listDir(rel, root);
     return entries.map((e) => ({
-      path: e.name,
+      path: rel ? `${rel}/${e.name}` : e.name,
       name: e.name,
       isDir: e.is_dir,
       size: e.size,
-      modified: 0,
+      modified: e.modified ? new Date(e.modified).getTime() / 1000 : 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function renameWorkspaceFile(oldPath: string, newPath: string, root?: FileRoot): Promise<boolean> {
+  try {
+    return await electronAPI().renameWorkspaceFile(oldPath, newPath, root);
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteWorkspaceFile(path: string, root?: FileRoot): Promise<boolean> {
+  try {
+    return await electronAPI().deleteWorkspaceFile(path, root);
+  } catch {
+    return false;
+  }
+}
+
+export async function searchWorkspace(
+  query: string,
+  root?: FileRoot,
+): Promise<DirEntry[]> {
+  try {
+    const entries = await electronAPI().searchWorkspace(query, root);
+    return entries.map((e) => ({
+      path: e.path,
+      name: e.name,
+      isDir: e.is_dir,
+      size: 0,
+      modified: e.modified ? new Date(e.modified).getTime() / 1000 : 0,
     }));
   } catch {
     return [];

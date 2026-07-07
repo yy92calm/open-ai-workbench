@@ -9,7 +9,7 @@ import {
   Sheet,
   X,
 } from "lucide-react";
-import { extOf, extToKind, previewKindForName, type PreviewKind } from "@/lib/artifacts";
+import { extOf, extToKind, previewKindForName, refToArtifactBlock, type PreviewKind } from "@/lib/artifacts";
 import { listDir, type DirEntry } from "@/lib/artifactFile";
 import { isTauri, workspaceBase } from "@/lib/tauri";
 import { useRuntimeStore } from "@/lib/runtime";
@@ -123,19 +123,40 @@ export function FilesPage() {
             </div>
           )}
           {entries?.map((entry) => (
-            <button
-              key={entry.path}
-              onClick={() => open(entry)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left text-[13px] hover:bg-surface-2",
-                selected?.path === entry.path ? "bg-surface-2 text-text" : "text-text/90",
+            <div key={entry.path} className="relative group">
+              <button
+                onClick={() => open(entry)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left text-[13px] hover:bg-surface-2",
+                  selected?.path === entry.path ? "bg-surface-2 text-text" : "text-text/90",
+                )}
+              >
+                {iconFor(entry)}
+                <span className="flex-1 truncate">{entry.name}</span>
+                {/* Show containing folder for base-scoped listings (help identify session folder) */}
+                {entry.path.includes("/") && (
+                  <span className="ml-2 max-w-[40%] truncate rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">
+                    {entry.path.slice(0, entry.path.lastIndexOf("/"))}
+                  </span>
+                )}
+                {!entry.isDir && <span className="shrink-0 text-[11px] text-muted">{humanSize(entry.size)}</span>}
+                {entry.isDir && <ChevronRight size={14} className="shrink-0 text-muted" />}
+              </button>
+              {!entry.isDir && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const a = refToArtifactBlock(entry.path);
+                    useRuntimeStore.getState().openArtifact(a);
+                  }}
+                  title="Open in session"
+                  aria-label={`Open ${entry.path} in session`}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 hidden rounded p-1 text-muted hover:bg-surface-2 group-hover:block"
+                >
+                  <NotebookPen size={13} />
+                </button>
               )}
-            >
-              {iconFor(entry)}
-              <span className="flex-1 truncate">{entry.name}</span>
-              {!entry.isDir && <span className="shrink-0 text-[11px] text-muted">{humanSize(entry.size)}</span>}
-              {entry.isDir && <ChevronRight size={14} className="shrink-0 text-muted" />}
-            </button>
+            </div>
           ))}
         </div>
       </div>
@@ -188,6 +209,7 @@ function FilePreview({
  */
 export function SessionFilesPane({ onClose }: { onClose: () => void }) {
   const workspace = useRuntimeStore((s) => s.workspace);
+  const { currentId, panes } = useRuntimeStore((s) => ({ currentId: s.currentId, panes: s.panes }));
   const [dir, setDir] = useState("");
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -198,6 +220,19 @@ export function SessionFilesPane({ onClose }: { onClose: () => void }) {
     setSelected(null);
     setDir("");
   }, [workspace]);
+
+  // If the runtime pane holds an artifact, select it so the preview opens.
+  useEffect(() => {
+    const pane = panes[currentId ?? DRAFT_KEY];
+    if (pane?.artifact && pane.artifact.path) {
+      const path = pane.artifact.path;
+      const name = path.includes("/") ? path.slice(path.lastIndexOf("/") + 1) : path;
+      setSelected({ path, name, isDir: false, size: 0, modified: 0 });
+      // Also show the files list root that contains it.
+      const idx = path.lastIndexOf("/");
+      setDir(idx >= 0 ? path.slice(0, idx) : "");
+    }
+  }, [panes, currentId]);
 
   useEffect(() => {
     let cancelled = false;
