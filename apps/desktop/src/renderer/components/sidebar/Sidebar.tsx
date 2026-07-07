@@ -5,6 +5,7 @@ import type { Project } from "@workbench/shared";
 import { cn } from "@/lib/cn";
 import { isDesktop } from "@/lib/electron";
 import { useRuntimeStore } from "@/lib/runtime";
+import { useI18n } from "@/lib/i18n";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import logo from "@/assets/logo.webp";
@@ -17,6 +18,7 @@ interface Row {
 }
 
 export function Sidebar({ project }: { project: Project }) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const { sessions, hiddenExamples, startDraft, deleteSession, hideExample } = useRuntimeStore();
@@ -27,8 +29,6 @@ export function Sidebar({ project }: { project: Project }) {
   };
 
   const rows: Row[] = [
-    // Subagent child sessions are internals of their parent conversation —
-    // their asks and progress surface there, so they get no row of their own.
     ...sessions
       .filter((s) => !s.parentId)
       .map((s) => ({ id: s.id, title: s.title, to: `/live/${s.id}`, kind: "session" as const })),
@@ -48,8 +48,6 @@ export function Sidebar({ project }: { project: Project }) {
     if (location.pathname === row.to) navigate("/live");
   };
 
-  // With the overlay titlebar (macOS), reserve a draggable strip at the top so
-  // the traffic lights don't overlap the logo and the window stays movable.
   const overlayTitlebar = isDesktop && navigator.userAgent.includes("Mac");
 
   return (
@@ -66,16 +64,16 @@ export function Sidebar({ project }: { project: Project }) {
       </div>
 
       <nav className="flex flex-col px-3">
-        <NavRow icon={<Plus size={16} />} label="New" onClick={startNew} />
-        <NavRow icon={<NotebookPen size={16} />} label="Notebooks" onClick={() => navigate("/notebooks")} />
-        <NavRow icon={<FolderTree size={16} />} label="Files" onClick={() => navigate("/files")} />
-        <NavRow icon={<Files size={16} />} label="Skills" onClick={() => navigate("/skills")} />
+        <NavRow icon={<Plus size={16} />} label={t("sidebar.new")} onClick={startNew} />
+        <NavRow icon={<NotebookPen size={16} />} label={t("sidebar.notebooks")} onClick={() => navigate("/notebooks")} />
+        <NavRow icon={<FolderTree size={16} />} label={t("sidebar.files")} onClick={() => navigate("/files")} />
+        <NavRow icon={<Files size={16} />} label={t("sidebar.skills")} onClick={() => navigate("/skills")} />
       </nav>
 
       <div className="mt-4 flex-1 overflow-y-auto px-3 pb-2">
-        <div className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted">History</div>
+        <div className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted">{t("sidebar.history")}</div>
         {rows.length === 0 && (
-          <div className="px-2 py-2 text-xs text-muted">No conversations yet.</div>
+          <div className="px-2 py-2 text-xs text-muted">{t("sidebar.noConversations")}</div>
         )}
         {rows.map((row) => (
           <div key={row.to} className="group relative">
@@ -95,7 +93,7 @@ export function Sidebar({ project }: { project: Project }) {
               <span className="flex-1 truncate">{row.title}</span>
               {row.kind === "example" && (
                 <span className="shrink-0 rounded-full bg-surface-2 px-1.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
-                  example
+                  {t("sidebar.example")}
                 </span>
               )}
             </NavLink>
@@ -118,19 +116,19 @@ export function Sidebar({ project }: { project: Project }) {
           aria-label="Settings"
         >
           <Settings size={15} />
-          <span>Settings</span>
+          <span>{t("sidebar.settings")}</span>
         </button>
       </div>
 
       {pendingDelete && (
         <ConfirmDialog
-          title={pendingDelete.kind === "session" ? "Delete session?" : "Hide example?"}
+          title={pendingDelete.kind === "session" ? t("sidebar.deleteSession") : t("sidebar.hideExample")}
           body={
             pendingDelete.kind === "session"
-              ? `"${pendingDelete.title}" and its messages will be deleted. This cannot be undone.`
-              : `"${pendingDelete.title}" will be hidden from the sidebar.`
+              ? `"${pendingDelete.title}"${t("sidebar.deleteSessionBody")}`
+              : `"${pendingDelete.title}"${t("sidebar.hideExampleBody")}`
           }
-          confirmLabel={pendingDelete.kind === "session" ? "Delete" : "Hide"}
+          confirmLabel={pendingDelete.kind === "session" ? t("sidebar.delete") : t("sidebar.hide")}
           onConfirm={confirmDelete}
           onCancel={() => setPendingDelete(null)}
         />

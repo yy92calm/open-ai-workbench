@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { loadLocale, persistLocale, type Locale } from "./i18n";
 
 export type Theme = "light" | "dark";
 
@@ -14,6 +15,7 @@ function initialTheme(): Theme {
 
 interface UiState {
   theme: Theme;
+  locale: Locale;
   inspectorOpen: boolean;
   sidebarCollapsed: boolean;
   paletteOpen: boolean;
@@ -21,6 +23,7 @@ interface UiState {
    *  provenance Reproduce action) — consumed on the next composer render. */
   composerDraft: string | null;
   setTheme: (theme: Theme) => void;
+  setLocale: (locale: Locale) => void;
   toggleTheme: () => void;
   setInspectorOpen: (open: boolean) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -29,12 +32,17 @@ interface UiState {
 
 export const useUiStore = create<UiState>((set, get) => ({
   theme: initialTheme(),
+  locale: loadLocale(),
   inspectorOpen: true,
   sidebarCollapsed: false,
   paletteOpen: false,
   setTheme: (theme) => {
     if (typeof window !== "undefined") window.localStorage.setItem(THEME_KEY, theme);
     set({ theme });
+  },
+  setLocale: (locale) => {
+    persistLocale(locale);
+    set({ locale });
   },
   toggleTheme: () => get().setTheme(get().theme === "light" ? "dark" : "light"),
   setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),

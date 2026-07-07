@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
 import { useUiStore } from "@/lib/store";
 import { useRuntimeStore } from "@/lib/runtime";
+import { useI18n } from "@/lib/i18n";
 import { openWorkspaceBase, pickFolder, setWorkspaceBase, workspaceBase } from "@/lib/tauri";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
@@ -13,15 +14,16 @@ import { cn } from "@/lib/cn";
  * privacy, and appearance.
  */
 export function SettingsPage() {
+  const { t } = useI18n();
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
+  const locale = useUiStore((s) => s.locale);
+  const setLocale = useUiStore((s) => s.setLocale);
   const { status, serverUrl, setServerUrl, connect, disconnect, defaultModel } = useRuntimeStore();
   const connected = status === "ready";
   const [wsPath, setWsPath] = useState<string | null>(null);
 
   useEffect(() => {
-    // The BASE folder — the parent every session's dated subfolder is created
-    // under. (The per-session active folder shows in the conversation header.)
     void workspaceBase().then(setWsPath);
   }, []);
 
@@ -30,23 +32,22 @@ export function SettingsPage() {
     if (!picked) return;
     try {
       setWsPath(await setWorkspaceBase(picked));
-      toast.success("New sessions will be created in this folder.");
+      toast.success(t("settings.workspaceSet"));
     } catch (err) {
-      toast.error(`Could not set the folder: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`${t("settings.workspaceError")} ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl px-8 pb-16 pt-8">
-        <h1 className="font-serif text-xl text-text">Settings</h1>
+        <h1 className="font-serif text-xl text-text">{t("settings.title")}</h1>
         <p className="mt-0.5 text-xs text-muted">
-          Runtime connection, workspace, and appearance. The agent's providers, model, skills, and
-          permissions come from the bundled <code className="font-mono">.opencode</code> profile.
+          {t("settings.subtitle")}
         </p>
 
         {/* ---- Agent runtime ---- */}
-        <Card title="Agent runtime" hint="opencode serve, driven over its HTTP + SSE API">
+        <Card title={t("settings.runtime")} hint={t("settings.runtimeHint")}>
           <div className="flex items-center gap-2">
             <input
               value={serverUrl}
@@ -56,11 +57,11 @@ export function SettingsPage() {
             />
             {connected ? (
               <button onClick={disconnect} className={btnGhost()}>
-                Disconnect
+                {t("settings.disconnect")}
               </button>
             ) : (
               <button onClick={connect} className={btnAccent()}>
-                Connect
+                {t("settings.connect")}
               </button>
             )}
           </div>
@@ -83,8 +84,8 @@ export function SettingsPage() {
 
         {/* ---- Workspace ---- */}
         <Card
-          title="Workspace"
-          hint="Local-first — each session works in its own dated subfolder created here"
+          title={t("settings.workspace")}
+          hint={t("settings.workspaceHint")}
         >
           <div className="flex items-center gap-2">
             <span
@@ -98,10 +99,10 @@ export function SettingsPage() {
             {wsPath && (
               <>
                 <button className={btnGhost("gap-1.5")} onClick={() => void changeWorkspaceBase()}>
-                  Change…
+                  {t("settings.change")}
                 </button>
                 <button className={btnGhost("gap-1.5")} onClick={() => void openWorkspaceBase()}>
-                  <FolderOpen size={13} /> Reveal
+                  <FolderOpen size={13} /> {t("settings.reveal")}
                 </button>
               </>
             )}
@@ -109,18 +110,41 @@ export function SettingsPage() {
         </Card>
 
         {/* ---- Appearance ---- */}
-        <Card title="Appearance">
+        <Card title={t("settings.appearance")}>
           <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
-            {(["light", "dark"] as const).map((t) => (
+            {(["light", "dark"] as const).map((th) => (
               <button
-                key={t}
-                onClick={() => setTheme(t)}
+                key={th}
+                onClick={() => setTheme(th)}
                 className={cn(
                   "rounded-[5px] px-4 py-1.5 text-[13px] capitalize transition-colors",
-                  theme === t ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
+                  theme === th ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
                 )}
               >
-                {t}
+                {th}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {/* ---- Language ---- */}
+        <Card title={t("settings.language")}>
+          <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
+            {([
+              { value: "en", label: "English" },
+              { value: "zh-CN", label: "简体中文" },
+            ] as const).map((lang) => (
+              <button
+                key={lang.value}
+                onClick={() => setLocale(lang.value)}
+                className={cn(
+                  "rounded-[5px] px-4 py-1.5 text-[13px] transition-colors",
+                  locale === lang.value
+                    ? "bg-surface text-text shadow-card"
+                    : "text-muted hover:text-text",
+                )}
+              >
+                {lang.label}
               </button>
             ))}
           </div>

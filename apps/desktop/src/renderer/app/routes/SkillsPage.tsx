@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Bot, Puzzle } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
 type Tab = "agents" | "skills";
 
 export function SkillsPage() {
+  const { t } = useI18n();
   const { skills, agents, status, loadCatalog } = useRuntimeStore();
   const connected = status === "ready";
   const [tab, setTab] = useState<Tab>("agents");
@@ -16,11 +18,9 @@ export function SkillsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-4xl px-8 py-8">
-        <h1 className="font-serif text-xl text-text">Skills &amp; Agents</h1>
-        <p className="mt-1 text-sm text-muted">
-          Loaded live from the OpenCode runtime.
-        </p>
+      <div className="mx-auto max-w-6xl px-8 py-8">
+        <h1 className="font-serif text-xl text-text">{t("skills.title")}</h1>
+        <p className="mt-1 text-sm text-muted">{t("skills.subtitle")}</p>
 
         {connected ? (
           <>
@@ -35,9 +35,9 @@ export function SkillsPage() {
 
             {tab === "agents" && (
               agents.length === 0 ? (
-                <Empty>No agents loaded.</Empty>
+                <Empty>{t("skills.noAgents")}</Empty>
               ) : (
-                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {agents.map((a) => (
                     <Card
                       key={a.name}
@@ -52,15 +52,15 @@ export function SkillsPage() {
 
             {tab === "skills" && (
               skills.length === 0 ? (
-                <Empty>No skills loaded.</Empty>
+                <Empty>{t("skills.noSkills")}</Empty>
               ) : (
-                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {skills.map((s) => (
                     <Card
                       key={s.name}
                       name={s.name}
                       desc={s.description}
-                      tags={sourceOf(s.location) ? [sourceOf(s.location)!] : []}
+                      tags={sourceOf(s.location, t) ? [sourceOf(s.location, t)!] : []}
                     />
                   ))}
                 </div>
@@ -69,7 +69,7 @@ export function SkillsPage() {
           </>
         ) : (
           <div className="mt-6 rounded-card border border-border bg-surface p-5 text-sm text-muted">
-            Connect the runtime to list the skills and agents it has loaded.
+            {t("skills.disconnected")}
           </div>
         )}
       </div>
@@ -100,20 +100,21 @@ function TabButton({
 }
 
 function Card({ name, desc, tags }: { name: string; desc: string; tags: string[] }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col rounded-card border border-border bg-surface p-4">
       <div className="mb-1 text-sm font-medium text-text">{name}</div>
       <div className="min-h-[2.5rem] text-xs leading-relaxed text-muted line-clamp-2">
-        {desc || "No description"}
+        {desc || t("skills.noDesc")}
       </div>
       {tags.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {tags.map((t) => (
+          {tags.map((tag) => (
             <span
-              key={t}
+              key={tag}
               className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted ring-1 ring-border"
             >
-              {t}
+              {tag}
             </span>
           ))}
         </div>
@@ -122,11 +123,11 @@ function Card({ name, desc, tags }: { name: string; desc: string; tags: string[]
   );
 }
 
-function sourceOf(location?: string): string | undefined {
+function sourceOf(location?: string, t?: (key: string) => string): string | undefined {
   if (!location) return undefined;
-  if (location.includes("/builtin/")) return "built-in";
-  if (location.includes("/.opencode/")) return "project";
-  return "user";
+  if (location.includes("/builtin/")) return t?.("skills.builtin") ?? "built-in";
+  if (location.includes("/.opencode/")) return t?.("skills.project") ?? "project";
+  return t?.("skills.user") ?? "user";
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
