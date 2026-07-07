@@ -6,7 +6,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "npm run copy:starboard && electron-vite build",
+    "copy:starboard": "rm -rf src/renderer/public/starboard-notebook && cp -r node_modules/starboard-notebook/dist src/renderer/public/starboard-notebook",
     "preview": "electron-vite preview",
     "package": "electron-builder --config electron-builder.config.ts",
     "package:mac": "electron-builder --mac --config electron-builder.config.ts",

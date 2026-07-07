@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, RefreshCw, X } from "lucide-react";
 import { readArtifact, writeWorkspaceFile } from "@/lib/artifactFile";
 import { ipynbToStarboard, starboardToIpynb } from "@/lib/starboard-ipynb";
-import "starboard-notebook";
 import { cn } from "@/lib/cn";
 
 declare module "react" {
@@ -34,6 +33,27 @@ interface StarboardNotebookElement extends HTMLElement {
   };
 }
 
+function loadStarboardScript(): Promise<void> {
+  return new Promise((resolve) => {
+    if (customElements.get("starboard-notebook")) {
+      resolve();
+      return;
+    }
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/starboard-notebook/starboard-notebook.css";
+    document.head.appendChild(link);
+
+    const script = document.createElement("script");
+    script.src = "/starboard-notebook/starboard-notebook.js";
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.head.appendChild(script);
+  });
+}
+
+let starboardLoaded = false;
+
 export function StarboardEditor({
   path,
   root,
@@ -46,18 +66,26 @@ export function StarboardEditor({
   onClose?: () => void;
 }) {
   const [content, setContent] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nbRef = useRef<StarboardNotebookElement>(null);
-  const savedContentRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
+    setReady(false);
     try {
+      if (!starboardLoaded) {
+        // Set the artifacts URL so webpack chunks load from the right place
+        window.starboardArtifactsUrl = "/starboard-notebook/";
+        await loadStarboardScript();
+        starboardLoaded = true;
+      }
       const f = await readArtifact(path, root);
       if (!f || f.encoding !== "utf8") throw new Error("could not read the notebook");
       const starboardText = ipynbToStarboard(f.data);
-      savedContentRef.current = starboardText;
+      window.initialNotebookContent = starboardText;
       setContent(starboardText);
+      setReady(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -78,13 +106,11 @@ export function StarboardEditor({
       }).join("\n\n") + "\n";
       const ipynb = starboardToIpynb(starboardText);
       await writeWorkspaceFile(path, ipynb, root);
-      savedContentRef.current = starboardText;
     } catch {
       /* ignore */
     }
   }, [path, root]);
 
-  // Auto-save every 5 seconds
   useEffect(() => {
     const t = setInterval(() => {
       void save();
@@ -92,7 +118,6 @@ export function StarboardEditor({
     return () => clearInterval(t);
   }, [save]);
 
-  // Listen for Ctrl+S / Cmd+S
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -116,7 +141,7 @@ export function StarboardEditor({
     );
   }
 
-  if (!content) {
+  if (!ready) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
@@ -153,17 +178,12 @@ export function StarboardEditor({
       </div>
       <div className="flex-1 overflow-hidden">
         <starboard-notebook
+          key={content}
           ref={nbRef as React.Ref<HTMLElement>}
           className={cn("block h-full w-full")}
           style={{ height: "100%" }}
         />
       </div>
-      {/* Set initial content via script injection */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.initialNotebookContent = ${JSON.stringify(content)};`,
-        }}
-      />
     </div>
   );
 }
