@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 
 export function enrichedPath(): string {
@@ -52,16 +52,18 @@ export interface ToolInfo {
   version: string | null;
 }
 
-export function detectTools(): ToolInfo[] {
+export async function detectTools(): Promise<ToolInfo[]> {
   const tools = [
-    "python3", "node", "npm", "pnpm", "git", "rustc", "cargo", "go",
+    "node", "npm", "pnpm", "git", "rustc", "cargo", "go",
     "docker", "uv", "conda", "make", "curl", "jq",
   ];
-  return tools.map((name) => {
+  const results: ToolInfo[] = [];
+  for (const name of tools) {
     const p = findInPath(name);
-    const version = p ? getVersion(name) : null;
-    return { name, path: p, version };
-  });
+    const version = p ? await getVersion(name) : null;
+    results.push({ name, path: p, version });
+  }
+  return results;
 }
 
 function findInPath(name: string): string | null {
@@ -73,12 +75,18 @@ function findInPath(name: string): string | null {
   return null;
 }
 
-function getVersion(name: string): string | null {
+function getVersion(name: string): Promise<string | null> {
   const flag = name === "go" ? "version" : "--version";
-  try {
-    const out = execSync(`${name} ${flag}`, { encoding: "utf-8", timeout: 5000 });
-    return out.trim().split("\n")[0] || null;
-  } catch {
-    return null;
-  }
+  return new Promise((resolve) => {
+    const child = spawn(name, [flag], {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 5000,
+    });
+    let stdout = "";
+    child.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
+    child.on("error", () => resolve(null));
+    child.on("exit", (code) => {
+      resolve(code === 0 ? (stdout.trim().split("\n")[0] || null) : null);
+    });
+  });
 }

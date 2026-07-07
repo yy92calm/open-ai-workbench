@@ -110,9 +110,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("preview-url", (_e, rel: string, root?: string) => previewUrl(rel, root));
 
   // ---- Tools ----
-  ipcMain.handle("detect-tools", () => {
-    // Returns the same format as the old Rust tools::detect_tools
-    const tools = detectTools();
+  ipcMain.handle("detect-tools", async () => {
+    const tools = await detectTools();
     return tools.map((t) => ({
       name: t.name,
       found: t.path !== null,

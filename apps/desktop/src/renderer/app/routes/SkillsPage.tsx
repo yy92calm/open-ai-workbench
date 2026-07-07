@@ -37,7 +37,7 @@ export function SkillsPage() {
               agents.length === 0 ? (
                 <Empty>{t("skills.noAgents")}</Empty>
               ) : (
-                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                   {agents.map((a) => (
                     <Card
                       key={a.name}
@@ -54,7 +54,7 @@ export function SkillsPage() {
               skills.length === 0 ? (
                 <Empty>{t("skills.noSkills")}</Empty>
               ) : (
-                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                   {skills.map((s) => (
                     <Card
                       key={s.name}
