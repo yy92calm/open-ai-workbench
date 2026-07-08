@@ -20,12 +20,15 @@ const config: Configuration = {
   mac: {
     category: "public.app-category.developer-tools",
     target: ["dmg", "zip"],
+    icon: "build-resources/icon.icns",
   },
   win: {
     target: ["nsis"],
+    icon: "build-resources/icon.png",
   },
   linux: {
     target: ["AppImage"],
+    icon: "build-resources/icon.png",
   },
 };
 
