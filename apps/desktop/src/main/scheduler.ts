@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, watch, writeFileSync, type FSWatcher } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { schedule, validate, type ScheduledTask as CronTask } from "node-cron";
@@ -158,4 +158,30 @@ export function runTaskNow(id: string): TaskDef | null {
   if (!task) return null;
   void executeTask(task);
   return task;
+}
+
+export function reloadScheduler(): void {
+  stopScheduler();
+  startScheduler();
+}
+
+let watcher: FSWatcher | null = null;
+
+export function startWatching(): void {
+  const file = tasksFile();
+  if (watcher) return;
+  try {
+    watcher = watch(file, () => {
+      reloadScheduler();
+    });
+  } catch {
+    // file may not exist yet, watch will fail
+  }
+}
+
+export function stopWatching(): void {
+  if (watcher) {
+    watcher.close();
+    watcher = null;
+  }
 }
