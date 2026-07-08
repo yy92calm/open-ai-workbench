@@ -8,6 +8,204 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { enrichedPath } from "./shell_env";
 
+const TASK_TOOL_SRC = `import { tool } from "@opencode-ai/plugin";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
+function apiBase(context: { directory: string }): string | null {
+  const file = join(context.directory, ".opencode", "task-api.json");
+  if (!existsSync(file)) return null;
+  try {
+    const cfg = JSON.parse(readFileSync(file, "utf-8"));
+    return \`\${cfg.baseUrl}/\${cfg.token}/api/tasks\`;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchApi(
+  base: string,
+  path: string,
+  options: { method?: string; body?: unknown } = {},
+): Promise<unknown> {
+  const url = path ? \`\${base}/\${path}\` : base;
+  const init: RequestInit = {
+    method: options.method ?? "GET",
+    headers: { "Content-Type": "application/json" },
+  };
+  if (options.body) {
+    init.body = JSON.stringify(options.body);
+  }
+  const res = await fetch(url, init);
+  return res.json();
+}
+
+export const list_tasks = tool({
+  description: "List all scheduled tasks",
+  args: {},
+  async execute(_args, context) {
+    const base = apiBase(context);
+    if (!base) return "Task API not available. Is the Workbench desktop app running?";
+    return JSON.stringify(await fetchApi(base, ""), null, 2);
+  },
+});
+
+export const create_task = tool({
+  description: "Create a new scheduled task",
+  args: {
+    name: tool.schema.string().describe("Task name"),
+    prompt: tool.schema.string().describe("Prompt to send to the agent on schedule"),
+    cron: tool.schema.string().describe("Cron expression, e.g. '0 9 * * 1-5' for weekdays at 9am"),
+  },
+  async execute(args, context) {
+    const base = apiBase(context);
+    if (!base) return "Task API not available.";
+    return JSON.stringify(
+      await fetchApi(base, "", {
+        method: "POST",
+        body: { name: args.name, prompt: args.prompt, cron: args.cron },
+      }),
+      null,
+      2,
+    );
+  },
+});
+
+export const update_task = tool({
+  description: "Update an existing scheduled task. Only pass the fields you want to change.",
+  args: {
+    id: tool.schema.string().describe("Task ID"),
+    name: tool.schema.string().optional().describe("New task name"),
+    prompt: tool.schema.string().optional().describe("New prompt"),
+    cron: tool.schema.string().optional().describe("New cron expression"),
+    enabled: tool.schema.boolean().optional().describe("Enable or disable the task"),
+  },
+  async execute(args, context) {
+    const base = apiBase(context);
+    if (!base) return "Task API not available.";
+    const { id, ...patch } = args;
+    const body: Record<string, unknown> = {};
+    if (patch.name !== undefined) body.name = patch.name;
+    if (patch.prompt !== undefined) body.prompt = patch.prompt;
+    if (patch.cron !== undefined) body.cron = patch.cron;
+    if (patch.enabled !== undefined) body.enabled = patch.enabled;
+    return JSON.stringify(
+      await fetchApi(base, id, { method: "PUT", body }),
+      null,
+      2,
+    );
+  },
+});
+
+export const delete_task = tool({
+  description: "Delete a scheduled task by ID",
+  args: {
+    id: tool.schema.string().describe("Task ID to delete"),
+  },
+  async execute(args, context) {
+    const base = apiBase(context);
+    if (!base) return "Task API not available.";
+    return JSON.stringify(
+      await fetchApi(base, args.id, { method: "DELETE" }),
+      null,
+      2,
+    );
+  },
+});
+
+export const toggle_task = tool({
+  description: "Toggle a scheduled task on/off",
+  args: {
+    id: tool.schema.string().describe("Task ID to toggle"),
+  },
+  async execute(args, context) {
+    const base = apiBase(context);
+    if (!base) return "Task API not available.";
+    return JSON.stringify(
+      await fetchApi(base, \`\${args.id}/toggle\`, { method: "POST" }),
+      null,
+      2,
+    );
+  },
+});
+
+export const run_task_now = tool({
+  description: "Execute a scheduled task immediately",
+  args: {
+    id: tool.schema.string().describe("Task ID to run immediately"),
+  },
+  async execute(args, context) {
+    const base = apiBase(context);
+    if (!base) return "Task API not available.";
+    return JSON.stringify(
+      await fetchApi(base, \`\${args.id}/run-now\`, { method: "POST" }),
+      null,
+      2,
+    );
+  },
+});
+`;
+
+const TASK_SKILL_SRC = `---
+name: scheduled-tasks
+description: "定时任务管理：创建、编辑、删除、查询定时任务。当用户要求创建定时任务、管理定时任务、设置定时提醒、计划任务、安排定期执行时使用。"
+---
+
+# 定时任务管理
+
+通过 \`scheduled-tasks_*\` 系列工具管理定时任务。这些工具由桌面应用自动注册，无需手动配置。
+
+## 可用工具
+
+| 工具 | 用途 |
+|------|------|
+| \`scheduled-tasks_list_tasks\` | 查询所有任务 |
+| \`scheduled-tasks_create_task\` | 创建任务 (name, prompt, cron) |
+| \`scheduled-tasks_update_task\` | 编辑任务 (id, 可选: name/prompt/cron/enabled) |
+| \`scheduled-tasks_delete_task\` | 删除任务 (id) |
+| \`scheduled-tasks_toggle_task\` | 启用/禁用任务 (id) |
+| \`scheduled-tasks_run_task_now\` | 立即执行任务 (id) |
+
+## 操作流程
+
+### 创建任务
+1. 确认用户需求：任务名称、提示词内容、执行频率
+2. 调用 \`scheduled-tasks_create_task\` 创建
+
+### 编辑任务
+1. 调用 \`scheduled-tasks_list_tasks\` 查看当前任务
+2. 确认要修改的任务和字段
+3. 调用 \`scheduled-tasks_update_task\` 更新
+
+### 删除任务
+1. 调用 \`scheduled-tasks_list_tasks\` 查看当前任务
+2. 确认后调用 \`scheduled-tasks_delete_task\` 删除
+
+### 查询任务
+1. 调用 \`scheduled-tasks_list_tasks\` 查看所有任务
+
+## Cron 表达式参考
+
+| 表达式 | 含义 |
+|--------|------|
+| \`0 9 * * 1-5\` | 工作日 9:00 |
+| \`0 15 * * 1-5\` | 工作日 15:00 |
+| \`0 8 * * *\` | 每日 8:00 |
+| \`0 */2 * * *\` | 每 2 小时 |
+| \`*/30 * * * *\` | 每 30 分钟 |
+| \`0 9 * * 1\` | 每周一 9:00 |
+| \`0 9 1 * *\` | 每月 1 号 9:00 |
+
+格式：\`分 时 日 月 周\`
+
+## 注意事项
+
+- 所有操作通过 \`scheduled-tasks_*\` 工具完成
+- 创建任务时 name、prompt、cron 必填
+- 编辑任务时只传需要修改的字段
+- 暂停任务用 \`toggle_task\`，不要删除
+`;
+
 let child: ChildProcess | null = null;
 let currentUrl: string | null = null;
 let currentPort: number | null = null;
@@ -93,6 +291,17 @@ export function deployBundledProfile(): void {
   if (existsSync(target)) rmSync(target, { recursive: true, force: true });
   cpSync(source, target, { recursive: true });
   log("profile", "deploy", `deployed ${source} -> ${target}`);
+  deployBuiltinAssets(target);
+}
+
+function deployBuiltinAssets(target: string): void {
+  const toolsDir = join(target, "tools");
+  mkdirSync(toolsDir, { recursive: true });
+  writeFileSync(join(toolsDir, "scheduled-tasks.ts"), TASK_TOOL_SRC);
+
+  const skillsDir = join(target, "skills", "scheduled-tasks");
+  mkdirSync(skillsDir, { recursive: true });
+  writeFileSync(join(skillsDir, "SKILL.md"), TASK_SKILL_SRC);
 }
 
 function freePort(): Promise<number> {
