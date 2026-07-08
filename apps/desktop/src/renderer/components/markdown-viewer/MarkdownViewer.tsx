@@ -1,10 +1,11 @@
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import hljs from "highlight.js";
+import { Play, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { kernelExecute, formatExecResult } from "@/lib/kernel";
 
-/** Two contexts render markdown: chat bubbles (theme colors, compact) and the
- *  file-preview "paper" (document-neutral black-on-white, editorial scale —
- *  like the Office previews, a document keeps its own colors in dark mode). */
 type Variant = "chat" | "document";
 
 const STYLES: Record<Variant, Record<string, string>> = {
@@ -26,14 +27,6 @@ const STYLES: Record<Variant, Record<string, string>> = {
     th: "border border-border bg-surface-2 px-3 py-1.5 text-left font-semibold",
     td: "border border-border px-3 py-1.5",
   },
-  // Editorial-blog paper: warm ink on white, serif headings, terracotta accent
-  // (#c15f3c — the app's brand). Theme-independent by design: a document reads
-  // the same in light or dark mode, so colors are fixed, not tokens.
-  //
-  // Two font stacks, both explicit so the paper never inherits the app's UI
-  // font. Body: a comfortable reading sans (SF/Segoe + PingFang for Chinese).
-  // Headings: the finest reading serifs that actually ship on macOS/Windows
-  // (Iowan/Charter → Georgia), CJK falling back to Songti.
   document: {
     root: "text-[16px] leading-[1.8] text-[#2b2620] antialiased [font-feature-settings:'liga','kern'] [font-family:-apple-system,'SF_Pro_Text','Segoe_UI','PingFang_SC','Microsoft_YaHei',sans-serif] selection:bg-[#f2d9cd]",
     p: "my-4 tracking-[0.006em] [text-wrap:pretty] first:mt-0 last:mb-0",
@@ -42,9 +35,6 @@ const STYLES: Record<Variant, Record<string, string>> = {
     pre: "my-5 overflow-x-auto rounded-lg bg-[#faf6f2] p-4 font-mono text-[13px] leading-6 ring-1 ring-[#ece2d9] [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-[#4b433a] [&_code]:ring-0",
     ul: "my-4 ml-[1.15em] list-disc space-y-2 marker:text-[#c98a6b]",
     ol: "my-4 ml-[1.15em] list-decimal space-y-2 marker:text-[13px] marker:font-medium marker:text-[#c98a6b]",
-    // Serif display headings give the editorial/blog feel; the stack falls back
-    // to system CJK serif so Chinese posts read as editorial too. Tracking stays
-    // near-zero — negative tracking crams CJK glyphs.
     h1: "mb-3 mt-10 text-[33px] font-bold leading-[1.25] tracking-[-0.01em] text-[#1c1915] [text-wrap:balance] first:mt-0 [font-family:'Iowan_Old_Style','Charter',Georgia,'Songti_SC','Noto_Serif_CJK_SC',serif]",
     h2: "mb-4 mt-11 flex items-baseline gap-2.5 text-[23px] font-semibold leading-snug tracking-[-0.005em] text-[#1c1915] [text-wrap:balance] before:relative before:top-[0.14em] before:h-[0.82em] before:w-[3px] before:shrink-0 before:rounded-full before:bg-[#c15f3c] before:content-[''] first:mt-0 [font-family:'Iowan_Old_Style','Charter',Georgia,'Songti_SC','Noto_Serif_CJK_SC',serif]",
     h3: "mb-2 mt-8 text-[18.5px] font-semibold leading-snug text-[#2b2620] first:mt-0 [font-family:'Iowan_Old_Style','Charter',Georgia,'Songti_SC','Noto_Serif_CJK_SC',serif]",
@@ -56,6 +46,66 @@ const STYLES: Record<Variant, Record<string, string>> = {
     td: "border-b border-[#efe8df] px-4 py-2.5",
   },
 };
+
+function CodeBlock({
+  language,
+  code,
+  variant,
+}: {
+  language: string | undefined;
+  code: string;
+  variant: Variant;
+}) {
+  const [running, setRunning] = useState(false);
+  const [output, setOutput] = useState<string | null>(null);
+  const s = STYLES[variant];
+
+  const highlighted = language
+    ? hljs.highlight(code, { language }).value
+    : hljs.highlightAuto(code).value;
+
+  const run = async () => {
+    if (running) return;
+    setRunning(true);
+    setOutput("running…");
+    try {
+      const lang = language === "python" || language === "py" ? "python3" : "bash";
+      const res = await kernelExecute(code, lang);
+      setOutput(res ? formatExecResult(res) : "(execution unavailable)");
+    } catch {
+      setOutput("execution error");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="group relative">
+      <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-[11px] text-muted">
+        <span className="font-mono uppercase">{language || "text"}</span>
+        <div className="flex-1" />
+        {variant === "chat" && (
+          <button
+            onClick={() => void run()}
+            disabled={running}
+            className="hidden items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-surface hover:text-text group-hover:flex disabled:opacity-50"
+          >
+            {running ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+            Run
+          </button>
+        )}
+      </div>
+      <pre className={cn(s.pre, "!mt-0 !rounded-t-none")}>
+        <code dangerouslySetInnerHTML={{ __html: highlighted }} />
+      </pre>
+      {output && (
+        <pre className="overflow-x-auto rounded-b-input border-t border-border bg-surface-2 p-3 font-mono text-[12px] text-text">
+          {output}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 export function MarkdownViewer({
   children,
@@ -78,14 +128,19 @@ export function MarkdownViewer({
               {children}
             </a>
           ),
-          code: ({ children }) => <code className={s.code}>{children}</code>,
-          // Block code: the plain wrapper — its inner <code> is restyled via [&_code].
-          pre: ({ children }) => <pre className={s.pre}>{children}</pre>,
+          code: ({ className: cls, children }) => {
+            const inline = !cls;
+            if (inline) {
+              return <code className={s.code}>{children}</code>;
+            }
+            const language = cls?.replace("language-", "");
+            const code = String(children).replace(/\n$/, "");
+            return <CodeBlock language={language} code={code} variant={variant} />;
+          },
+          pre: ({ children }) => <>{children}</>,
           ul: ({ children }) => <ul className={s.ul}>{children}</ul>,
           ol: ({ children }) => <ol className={s.ol}>{children}</ol>,
           li: ({ children }) => <li>{children}</li>,
-          // Document elements (headings, quotes, tables, rules) — Tailwind's
-          // preflight strips the browser defaults, so each needs explicit style.
           h1: ({ children }) => <h1 className={s.h1}>{children}</h1>,
           h2: ({ children }) => <h2 className={s.h2}>{children}</h2>,
           h3: ({ children }) => <h3 className={s.h3}>{children}</h3>,

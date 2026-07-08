@@ -13,9 +13,6 @@ vi.mock("@/components/inspector/FilePreviewInspector", () => ({
     <div data-testid="preview">preview:{data.filename}</div>
   ),
 }));
-vi.mock("@/components/notebook/NotebookEditor", () => ({
-  NotebookEditor: ({ path }: { path: string }) => <div data-testid="nb">nb:{path}</div>,
-}));
 
 const root: DirEntry[] = [
   { path: "data", name: "data", isDir: true, size: 0, modified: 2 },
@@ -39,10 +36,10 @@ describe("FilesPage", () => {
     expect(screen.getByTestId("preview")).toHaveTextContent("preview:figure.png");
   });
 
-  it("opens notebooks in the runnable editor", async () => {
+  it("opens .ipynb files in the preview", async () => {
     render(<FilesPage />);
     await userEvent.click(await screen.findByText("run.ipynb"));
-    expect(screen.getByTestId("nb")).toHaveTextContent("nb:run.ipynb");
+    expect(screen.getByTestId("preview")).toHaveTextContent("preview:run.ipynb");
   });
 
   it("navigates into a folder and back via the breadcrumb", async () => {

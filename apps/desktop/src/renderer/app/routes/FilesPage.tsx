@@ -14,7 +14,6 @@ import { listDir, type DirEntry } from "@/lib/artifactFile";
 import { isTauri, workspaceBase } from "@/lib/tauri";
 import { useRuntimeStore } from "@/lib/runtime";
 import { baseName } from "@/components/thread/WorkspaceChip";
-import { StarboardEditor } from "@/components/notebook/StarboardEditor";
 import { FilePreviewInspector } from "@/components/inspector/FilePreviewInspector";
 import { cn } from "@/lib/cn";
 
@@ -163,7 +162,6 @@ function FilePreview({
   onClose: () => void;
 }) {
   const ext = extOf(entry.name);
-  if (ext === "ipynb") return <StarboardEditor path={entry.path} root={root} onClose={onClose} />;
   const kind: PreviewKind = previewKindForName(entry.name);
   return (
     <FilePreviewInspector

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Files, FolderTree, NotebookPen, Plus, Settings, Trash2 } from "lucide-react";
+import { CalendarClock, Files, FolderTree, Plus, Settings, Trash2 } from "lucide-react";
 import type { Project } from "@workbench/shared";
 import { cn } from "@/lib/cn";
 import { isDesktop } from "@/lib/electron";
@@ -65,7 +65,7 @@ export function Sidebar({ project }: { project: Project }) {
 
       <nav className="flex flex-col px-3">
         <NavRow icon={<Plus size={16} />} label={t("sidebar.new")} onClick={startNew} />
-        <NavRow icon={<NotebookPen size={16} />} label={t("sidebar.notebooks")} onClick={() => navigate("/notebooks")} />
+        <NavRow icon={<CalendarClock size={16} />} label={t("sidebar.tasks")} onClick={() => navigate("/tasks")} />
         <NavRow icon={<FolderTree size={16} />} label={t("sidebar.files")} onClick={() => navigate("/files")} />
         <NavRow icon={<Files size={16} />} label={t("sidebar.skills")} onClick={() => navigate("/skills")} />
       </nav>
