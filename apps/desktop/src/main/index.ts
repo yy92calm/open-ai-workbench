@@ -8,7 +8,7 @@ import { createMainWindow, setDockIcon, getMainWindow } from "./windows";
 import { setupAutoUpdater } from "./updater";
 import { stopSidecar, deployBundledProfile } from "./server";
 import { killAllKernels } from "./kernel";
-import { stopPreviewServer } from "./preview_server";
+import { stopPreviewServer, startPreviewServer } from "./preview_server";
 import { startScheduler, stopScheduler } from "./scheduler";
 
 contextMenu({ showSaveImageAs: true });
@@ -71,6 +71,8 @@ void app.whenReady().then(async () => {
   deployBundledProfile();
 
   startScheduler();
+
+  startPreviewServer();
 
   const updater = setupAutoUpdater();
 
