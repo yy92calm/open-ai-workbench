@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "repository": "https://github.com/yy92calm/open-ai-workbench",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
