@@ -2,7 +2,7 @@ import { createServer, type Server, IncomingMessage, ServerResponse } from "node
 import { existsSync, readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
-import { workspaceDir } from "./server";
+import { baseWorkspaceDir, workspaceDir } from "./server";
 
 let server: Server | null = null;
 let serverToken: string | null = null;
@@ -29,6 +29,7 @@ const MIME: Record<string, string> = {
   ".xml": "application/xml",
   ".yaml": "text/yaml",
   ".yml": "text/yaml",
+  ".webp": "image/webp",
   ".woff2": "font/woff2",
   ".woff": "font/woff",
 };
@@ -39,10 +40,10 @@ export function previewToken(): string {
 }
 
 export function previewUrl(rel: string, root?: string): string | null {
-  const base = workspaceDir();
+  const base = root === "workspace" ? workspaceDir() : baseWorkspaceDir();
   const file = resolve(base, rel);
-  if (!file.startsWith(base) || !existsSync(file)) return null;
-  return `http://127.0.0.1:${serverPort ?? 0}/${previewToken()}/w/${rel}`;
+  if (!file.startsWith(baseWorkspaceDir()) || !existsSync(file)) return null;
+  return `http://127.0.0.1:${serverPort ?? 0}/${previewToken()}/w/${encodeURIComponent(rel)}`;
 }
 
 export function startPreviewServer(): number {
@@ -53,9 +54,10 @@ export function startPreviewServer(): number {
     const parts = url.pathname.split("/").filter(Boolean);
 
     if (parts.length >= 3 && parts[0] === serverToken && parts[1] === "w") {
-      const rel = parts.slice(2).join("/");
-      const file = resolve(workspaceDir(), rel);
-      if (!file.startsWith(workspaceDir()) || !existsSync(file)) {
+      const rel = decodeURIComponent(parts.slice(2).join("/"));
+      const base = baseWorkspaceDir();
+      const file = resolve(base, rel);
+      if (!file.startsWith(base) || !existsSync(file)) {
         res.writeHead(403);
         res.end("Forbidden");
         return;
