@@ -1,3 +1,14 @@
+export interface TaskDef {
+  id: string;
+  name: string;
+  prompt: string;
+  cron: string;
+  enabled: boolean;
+  createdAt: number;
+  lastRunAt?: number;
+  lastSessionId?: string;
+}
+
 export interface ElectronAPI {
   channelName: () => Promise<string>;
   appIdentifier: () => Promise<string>;
@@ -54,6 +65,12 @@ export interface ElectronAPI {
   checkForUpdates: (alertOnUpToDate?: boolean) => Promise<void>;
 
   openExternal: (url: string) => Promise<void>;
+
+  tasksList: () => Promise<TaskDef[]>;
+  tasksAdd: (name: string, prompt: string, cron: string) => Promise<TaskDef>;
+  tasksUpdate: (id: string, patch: Record<string, unknown>) => Promise<TaskDef | null>;
+  tasksRemove: (id: string) => Promise<boolean>;
+  tasksRunNow: (id: string) => Promise<TaskDef | null>;
 }
 
 declare global {

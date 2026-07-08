@@ -9,6 +9,7 @@ import { setupAutoUpdater } from "./updater";
 import { stopSidecar, deployBundledProfile } from "./server";
 import { killAllKernels } from "./kernel";
 import { stopPreviewServer } from "./preview_server";
+import { startScheduler, stopScheduler } from "./scheduler";
 
 contextMenu({ showSaveImageAs: true });
 
@@ -38,6 +39,7 @@ app.on("second-instance", () => {
 
 app.on("before-quit", () => {
   stopSidecar();
+  stopScheduler();
   killAllKernels();
   stopPreviewServer();
 });
@@ -67,6 +69,8 @@ void app.whenReady().then(async () => {
   setDockIcon();
 
   deployBundledProfile();
+
+  startScheduler();
 
   const updater = setupAutoUpdater();
 
