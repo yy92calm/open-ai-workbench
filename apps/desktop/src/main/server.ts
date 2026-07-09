@@ -12,20 +12,15 @@ const TASK_TOOL_SRC = `import { tool } from "@opencode-ai/plugin";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-function apiBase(context: { directory: string; worktree: string }): string | null {
-  const roots = [context.worktree, context.directory];
-  for (const root of roots) {
-    const file = join(root, ".opencode", "task-api.json");
-    if (existsSync(file)) {
-      try {
-        const cfg = JSON.parse(readFileSync(file, "utf-8"));
-        return \`\${cfg.baseUrl}/\${cfg.token}/api/tasks\`;
-      } catch {
-        return null;
-      }
-    }
+function apiBase(context: { directory: string }): string | null {
+  const file = join(context.directory, ".opencode", "task-api.json");
+  if (!existsSync(file)) return null;
+  try {
+    const cfg = JSON.parse(readFileSync(file, "utf-8"));
+    return \`\${cfg.baseUrl}/\${cfg.token}/api/tasks\`;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 async function fetchApi(
