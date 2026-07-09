@@ -3,7 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { schedule, validate, type ScheduledTask as CronTask } from "node-cron";
-import { getServerPassword, getServerUrl, workspaceDir } from "./server";
+import { getServerPassword } from "./server";
+import { workspaceDir } from "./server";
 
 export interface TaskDef {
   id: string;
@@ -37,13 +38,9 @@ function saveTasks(tasks: TaskDef[]): void {
 const cronMap = new Map<string, CronTask>();
 
 async function executeTask(task: TaskDef): Promise<void> {
-  const baseUrl = getServerUrl();
-  if (!baseUrl) {
-    console.error(`[scheduler] task "${task.name}" skipped: no sidecar URL`);
-    return;
-  }
   const password = getServerPassword();
   const auth = btoa(`opencode:${password}`);
+  const baseUrl = `http://127.0.0.1:4096`;
   const dir = workspaceDir();
 
   try {
