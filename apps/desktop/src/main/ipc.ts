@@ -10,7 +10,6 @@ import { startPreviewServer, stopPreviewServer, previewToken, previewUrl } from 
 import { detectShells, detectTools, enrichedPath } from "./shell_env";
 import { checkForUpdates } from "./updater";
 import { createMainWindow, getMainWindow } from "./windows";
-import { addTask, getTasks, removeTask, runTaskNow, updateTask } from "./scheduler";
 
 export function registerIpcHandlers(): void {
   const log = getLogger();
@@ -160,15 +159,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("check-for-updates", async (_e, alertOnUpToDate: boolean) => {
     await checkForUpdates(alertOnUpToDate);
   });
-
-  // ---- Scheduled Tasks ----
-  ipcMain.handle("tasks:list", () => getTasks());
-  ipcMain.handle("tasks:add", (_e, name: string, prompt: string, cron: string) =>
-    addTask(name, prompt, cron));
-  ipcMain.handle("tasks:update", (_e, id: string, patch: Record<string, unknown>) =>
-    updateTask(id, patch as Parameters<typeof updateTask>[1]));
-  ipcMain.handle("tasks:remove", (_e, id: string) => removeTask(id));
-  ipcMain.handle("tasks:run-now", (_e, id: string) => runTaskNow(id));
 
   log.info("IPC handlers registered");
 }

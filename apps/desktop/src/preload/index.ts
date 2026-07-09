@@ -73,13 +73,6 @@ const api = {
 
   // Window
   openExternal: (url: string) => ipcRenderer.invoke("open-url", url),
-
-  // Scheduled Tasks
-  tasksList: () => ipcRenderer.invoke("tasks:list"),
-  tasksAdd: (name: string, prompt: string, cron: string) => ipcRenderer.invoke("tasks:add", name, prompt, cron),
-  tasksUpdate: (id: string, patch: Record<string, unknown>) => ipcRenderer.invoke("tasks:update", id, patch),
-  tasksRemove: (id: string) => ipcRenderer.invoke("tasks:remove", id),
-  tasksRunNow: (id: string) => ipcRenderer.invoke("tasks:run-now", id),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);
