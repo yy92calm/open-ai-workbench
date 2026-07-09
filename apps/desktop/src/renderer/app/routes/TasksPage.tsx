@@ -19,9 +19,7 @@ export function TasksPage() {
   const [showNew, setShowNew] = useState(false);
 
   const load = useCallback(async () => {
-    if (window.electronAPI) {
-      setTasks(await window.electronAPI.tasksList());
-    }
+    setTasks(await window.electronAPI.tasksList());
   }, []);
 
   useEffect(() => {
