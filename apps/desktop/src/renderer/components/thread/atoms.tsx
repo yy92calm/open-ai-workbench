@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Paperclip } from "lucide-react";
+import { Check, Copy, Loader2, Paperclip, Pencil } from "lucide-react";
 import type {
   ArtifactBlock,
   DataTableBlock,
@@ -12,21 +12,78 @@ import { MarkdownViewer } from "@/components/markdown-viewer/MarkdownViewer";
 import { extractArtifactRefs, refToArtifactBlock } from "@/lib/artifacts";
 import { resolveArtifactPath } from "@/lib/artifactFile";
 
-export function UserMessage({ block }: { block: UserMessageBlock }) {
+function useCopy(text: string) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      /* ignore */
+    }
+  };
+  return { copied, onCopy };
+}
+
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+export function UserMessage({ block, onEdit }: { block: UserMessageBlock; onEdit?: (text: string) => void }) {
+  const { copied, onCopy } = useCopy(block.text);
   return (
-    <div className="rounded-card bg-surface-2 px-4 py-3 text-[15px] leading-relaxed text-text">
-      {block.text}
+    <div className="flex justify-end">
+      <div className="group max-w-[82%]">
+        <div
+          className="rounded-[14px] border px-4 py-2.5 text-[15px] leading-[1.65]"
+          style={{
+            background: "var(--chat-user-bg)",
+            borderColor: "var(--chat-user-border)",
+            color: "var(--chat-user-fg)",
+            boxShadow: "var(--chat-user-shadow)",
+            fontWeight: 450,
+          }}
+        >
+          <div className="whitespace-pre-wrap break-words">{block.text}</div>
+        </div>
+        <div className="mt-0.5 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {block.timestamp && (
+            <span className="text-[10px] text-muted">{formatTime(block.timestamp)}</span>
+          )}
+          {onEdit && (
+            <button
+              className="rounded p-0.5 text-muted hover:text-text"
+              title="Edit and resend"
+              onClick={() => onEdit(block.text)}
+            >
+              <Pencil size={11} />
+            </button>
+          )}
+          <button
+            className="rounded p-0.5 text-muted hover:text-text"
+            title="Copy"
+            onClick={onCopy}
+          >
+            {copied ? <Check size={11} className="text-ok" /> : <Copy size={11} />}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 export function AgentMessage({
   markdown,
+  timestamp,
   onOpenArtifact,
 }: {
   markdown: string;
+  timestamp?: number;
   onOpenArtifact?: (a: ArtifactBlock) => void;
 }) {
+  const { copied, onCopy } = useCopy(markdown);
   // Files the agent mentions (e.g. a PDF produced by running code) become clickable.
   // Each mention is resolved to a real workspace path first — prose often names a
   // bare filename ("index.html") whose file lives in a subdirectory; mentions of
@@ -51,23 +108,41 @@ export function AgentMessage({
     };
   }, [mentionedKey]);
   return (
-    <div>
-      <MarkdownViewer>{markdown}</MarkdownViewer>
-      {refs.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {refs.map((path) => (
-            <button
-              key={path}
-              onClick={() => onOpenArtifact?.(refToArtifactBlock(path))}
-              className="flex items-center gap-1.5 rounded-input border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-surface-2"
-              title={`Preview ${path}`}
-            >
-              <Paperclip size={12} className="text-accent" />
-              <span className="font-mono">{path.split(/[\\/]/).pop()}</span>
-            </button>
-          ))}
+    <div className="group flex gap-3">
+      {/* Left accent line — subtle agent identifier */}
+      <div className="w-[2px] shrink-0 self-stretch rounded-full bg-accent/20" />
+      <div className="min-w-0 flex-1 flex flex-col gap-2">
+        <div className="text-[15px] leading-[1.65] text-text">
+          <MarkdownViewer>{markdown}</MarkdownViewer>
         </div>
-      )}
+        {refs.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-2">
+            {refs.map((path) => (
+              <button
+                key={path}
+                onClick={() => onOpenArtifact?.(refToArtifactBlock(path))}
+                className="flex items-center gap-1.5 rounded-input border border-border bg-surface px-2 py-1 text-xs text-text transition-colors hover:bg-surface-2 hover:border-accent/30"
+                title={`Preview ${path}`}
+              >
+                <Paperclip size={12} className="text-accent" />
+                <span className="font-mono">{path.split(/[\\/]/).pop()}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+          {timestamp && (
+            <span className="text-[10px] text-muted">{formatTime(timestamp)}</span>
+          )}
+          <button
+            className="rounded p-0.5 text-muted hover:text-text"
+            title="Copy response"
+            onClick={onCopy}
+          >
+            {copied ? <Check size={11} className="text-ok" /> : <Copy size={11} />}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

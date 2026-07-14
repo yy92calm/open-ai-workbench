@@ -314,10 +314,23 @@ export function Composer({
   return (
     <div
       className={cn(
-        "relative rounded-card border bg-surface px-2 py-2 shadow-card",
-        shellMode ? "border-warn/60" : command ? "border-accent/50" : "border-border",
+        "relative overflow-hidden rounded-card border bg-surface shadow-card transition-colors",
+        working
+          ? "border-accent/40"
+          : shellMode
+            ? "border-warn/60"
+            : command
+              ? "border-accent/50"
+              : "border-border",
       )}
     >
+      {/* Running status strip */}
+      {working && (
+        <div className="flex items-center gap-2 border-b border-border-soft px-3.5 py-1.5 text-[12px] text-accent">
+          <span className="h-[6px] w-[6px] shrink-0 animate-pulse rounded-full bg-accent" />
+          <span className="font-medium">Agent is working…</span>
+        </div>
+      )}
       {paletteOpen && (
         <div
           role="listbox"

@@ -71,6 +71,15 @@ const api = {
   // Updater
   checkForUpdates: (alertOnUpToDate?: boolean) => ipcRenderer.invoke("check-for-updates", alertOnUpToDate),
 
+  // Scheduler
+  schedulerList: () => ipcRenderer.invoke("scheduler:list"),
+  schedulerCreate: (task: unknown) => ipcRenderer.invoke("scheduler:create", task),
+  schedulerUpdate: (id: string, patch: unknown) => ipcRenderer.invoke("scheduler:update", id, patch),
+  schedulerDelete: (id: string) => ipcRenderer.invoke("scheduler:delete", id),
+  schedulerToggle: (id: string, enabled: boolean) => ipcRenderer.invoke("scheduler:toggle", id, enabled),
+  schedulerFireNow: (id: string) => ipcRenderer.invoke("scheduler:fire-now", id),
+  schedulerHistory: (taskId?: string, limit?: number) => ipcRenderer.invoke("scheduler:history", taskId, limit),
+
   // Window
   openExternal: (url: string) => ipcRenderer.invoke("open-url", url),
 };

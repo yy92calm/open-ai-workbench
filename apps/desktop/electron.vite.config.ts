@@ -6,7 +6,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ["@workbench/sdk", "@workbench/shared"] })],
     build: {
       rollupOptions: {
         external: ["electron-store", "electron-log", "electron-updater", "electron-context-menu", "electron-window-state"],

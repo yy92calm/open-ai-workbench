@@ -3,6 +3,7 @@ import { Configuration } from "electron-builder";
 const config: Configuration = {
   appId: "com.workbench.app",
   productName: "Workbench",
+  publish: [],
   directories: {
     output: "release",
   },
@@ -15,6 +16,11 @@ const config: Configuration = {
     {
       from: "../../app-config/.opencode",
       to: "app-config",
+    },
+    {
+      from: "scripts",
+      to: "scripts",
+      filter: ["mcp_scheduler.mjs"],
     },
   ],
   mac: {

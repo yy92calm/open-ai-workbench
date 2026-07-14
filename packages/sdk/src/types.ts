@@ -18,6 +18,14 @@ export interface TextUpdatedEvent {
   partId: string;
   text: string;
 }
+export interface ReasoningUpdatedEvent {
+  type: "reasoning.updated";
+  sessionId: string;
+  partId: string;
+  text: string;
+  /** True while the reasoning is still streaming (delta events still arriving). */
+  streaming?: boolean;
+}
 export interface ToolUpdatedEvent {
   type: "tool.updated";
   sessionId: string;
@@ -90,6 +98,7 @@ export interface RuntimeErrorEvent {
 
 export type OpenCodeEvent =
   | TextUpdatedEvent
+  | ReasoningUpdatedEvent
   | ToolUpdatedEvent
   | SessionIdleEvent
   | RuntimeErrorEvent
@@ -100,6 +109,9 @@ export type OpenCodeEvent =
 
 /** Approve a permission once, always (persist a rule), or reject it. */
 export type PermissionReply = "once" | "always" | "reject";
+
+/** Permission mode presets for the agent. */
+export type PermissionMode = "review" | "auto" | "yolo";
 
 // ---- REST shapes the app consumes ----
 

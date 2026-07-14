@@ -9,6 +9,7 @@ import type {
   OpenCodeEvent,
   OpenCodePart,
   OpenCodeRawEvent,
+  PermissionMode,
   PermissionReply,
   ProviderAuthMethod,
   ProviderCatalogEntry,
@@ -70,6 +71,8 @@ export class OpenCodeClient {
    *  arrives as a message.part.delta that must be summed here — otherwise the
    *  app shows nothing until the whole passage is finished. */
   private readonly textStreams = new Map<string, { sessionId: string; text: string }>();
+  /** partID → accumulated reasoning text (same accumulation pattern as text). */
+  private readonly reasoningStreams = new Map<string, { sessionId: string; text: string }>();
 
   constructor(opts: OpenCodeClientOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? DEFAULT_OPENCODE_URL).replace(/\/$/, "");
@@ -369,6 +372,15 @@ export class OpenCodeClient {
     if (!res.ok) throw new Error(`Failed to add the MCP server (${res.status})`);
   }
 
+  /** Enable or disable an MCP server. */
+  async toggleMcpServer(name: string, enabled: boolean): Promise<void> {
+    const servers = await this.listMcpServers();
+    const server = servers.find((s) => s.name === name);
+    if (!server?.config) throw new Error(`MCP server ${name} not found`);
+    const config = { ...server.config, enabled };
+    return this.addMcpServer(name, config);
+  }
+
   /** The full provider catalog (~150 entries) and which ids are connected. */
   async listProviderCatalog(): Promise<{ all: ProviderCatalogEntry[]; connected: string[] }> {
     const res = await this.fetchImpl(`${this.baseUrl}/provider`, { headers: this.headers() });
@@ -599,6 +611,33 @@ export class OpenCodeClient {
     if (!res.ok) throw new Error(`Failed to reply to the permission (${res.status})`);
   }
 
+  /** Set the permission mode preset (review / auto / yolo) via the global config. */
+  async setPermissionMode(mode: PermissionMode): Promise<void> {
+    const permission: Record<string, string> =
+      mode === "review"
+        ? { bash: "ask", edit: "ask", write: "ask", skill: "allow", question: "allow", external_directory: "ask", doom_loop: "deny" }
+        : mode === "yolo"
+          ? { bash: "allow", edit: "allow", write: "allow", skill: "allow", question: "allow", external_directory: "allow", doom_loop: "allow" }
+          : { bash: "allow", edit: "allow", write: "allow", skill: "allow", question: "allow", external_directory: "allow", doom_loop: "deny" };
+    const res = await this.fetchImpl(`${this.baseUrl}/global/config`, {
+      method: "PATCH",
+      headers: this.headers(true),
+      body: JSON.stringify({ permission }),
+    });
+    if (!res.ok) throw new Error(`Failed to set permission mode (${res.status})`);
+  }
+
+  /** Read the current permission config to determine the active mode. */
+  async getPermissionMode(): Promise<PermissionMode> {
+    const res = await this.fetchImpl(`${this.baseUrl}/config`, { headers: this.headers() });
+    if (!res.ok) return "auto";
+    const cfg = (await res.json()) as { permission?: Record<string, string> };
+    const p = cfg.permission ?? {};
+    if (p.bash === "ask" || p.edit === "ask" || p.write === "ask") return "review";
+    if (p.external_directory === "allow" && p.doom_loop === "allow") return "yolo";
+    return "auto";
+  }
+
   // ---- internals ----
 
   private async readStream(body: ReadableStream<Uint8Array>): Promise<void> {
@@ -660,6 +699,10 @@ export class OpenCodeClient {
           const t = part as { id: string; text: string };
           this.textStreams.set(t.id, { sessionId, text: t.text ?? "" });
           this.emit({ type: "text.updated", sessionId, partId: t.id, text: t.text ?? "" });
+        } else if (part.type === "reasoning") {
+          const r = part as { id: string; text: string };
+          this.reasoningStreams.set(r.id, { sessionId, text: r.text ?? "" });
+          this.emit({ type: "reasoning.updated", sessionId, partId: r.id, text: r.text ?? "", streaming: false });
         } else if (part.type === "tool") {
           const tp = part as {
             callID: string;
@@ -690,18 +733,48 @@ export class OpenCodeClient {
       }
       case "message.part.delta": {
         // One streamed token. Only text parts are accumulated (reasoning parts
-        // never get seeded by message.part.updated, so their deltas fall out).
+        // never get seeded by message.part.updated, so their deltas fold out).
         const d = props as { partID?: string; field?: string; delta?: string };
-        if (d.field !== "text" || !d.partID || typeof d.delta !== "string") return;
-        const acc = this.textStreams.get(String(d.partID));
-        if (!acc) return;
-        acc.text += d.delta;
-        this.emit({
-          type: "text.updated",
-          sessionId: acc.sessionId,
-          partId: String(d.partID),
-          text: acc.text,
-        });
+        if (!d.partID || typeof d.delta !== "string") return;
+        // Text delta
+        if (d.field === "text") {
+          const acc = this.textStreams.get(String(d.partID));
+          if (!acc) return;
+          acc.text += d.delta;
+          this.emit({
+            type: "text.updated",
+            sessionId: acc.sessionId,
+            partId: String(d.partID),
+            text: acc.text,
+          });
+          return;
+        }
+        // Reasoning delta (field may be "text" on the reasoning part, or absent)
+        const racc = this.reasoningStreams.get(String(d.partID));
+        if (racc) {
+          racc.text += d.delta;
+          this.emit({
+            type: "reasoning.updated",
+            sessionId: racc.sessionId,
+            partId: String(d.partID),
+            text: racc.text,
+            streaming: true,
+          });
+          return;
+        }
+        // First reasoning delta for a part we haven't seen — seed it.
+        const rField = d.field ?? "text";
+        if (rField === "text") {
+          const sessionId = String((props as { sessionID?: string }).sessionID ?? "");
+          this.reasoningStreams.set(String(d.partID), { sessionId, text: d.delta });
+          this.emit({
+            type: "reasoning.updated",
+            sessionId,
+            partId: String(d.partID),
+            text: d.delta,
+            streaming: true,
+          });
+        }
         break;
       }
       case "session.idle": {
@@ -709,6 +782,12 @@ export class OpenCodeClient {
         // The turn is over — its text parts can no longer receive deltas.
         for (const [partId, acc] of this.textStreams)
           if (acc.sessionId === sessionId) this.textStreams.delete(partId);
+        // Mark reasoning streams as no longer streaming.
+        for (const [partId, acc] of this.reasoningStreams)
+          if (acc.sessionId === sessionId) {
+            this.emit({ type: "reasoning.updated", sessionId, partId, text: acc.text, streaming: false });
+            this.reasoningStreams.delete(partId);
+          }
         this.emit({ type: "session.idle", sessionId });
         break;
       }

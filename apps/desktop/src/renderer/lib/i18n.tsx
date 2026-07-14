@@ -19,7 +19,7 @@ type TranslationMap = Record<string, string>;
 
 const en: TranslationMap = {
   "skills.title": "Skills & Agents",
-  "skills.subtitle": "Loaded live from the OpenCode runtime.",
+  "skills.subtitle": "Loaded live from the agent runtime.",
   "skills.noAgents": "No agents loaded.",
   "skills.noSkills": "No skills loaded.",
   "skills.noDesc": "No description",
@@ -30,9 +30,9 @@ const en: TranslationMap = {
 
   "settings.title": "Settings",
   "settings.subtitle":
-    "Runtime connection, workspace, and appearance. The agent's providers, model, skills, and permissions come from the bundled .opencode profile.",
+    "Runtime connection, workspace, and appearance. The agent's providers, model, skills, and permissions come from the bundled profile.",
   "settings.runtime": "Agent runtime",
-  "settings.runtimeHint": "opencode serve, driven over its HTTP + SSE API",
+  "settings.runtimeHint": "Agent serve, driven over its HTTP + SSE API",
   "settings.disconnect": "Disconnect",
   "settings.connect": "Connect",
   "settings.workspace": "Workspace",
@@ -65,7 +65,7 @@ const en: TranslationMap = {
 
 const zhCN: TranslationMap = {
   "skills.title": "技能与智能体",
-  "skills.subtitle": "从 OpenCode 运行时实时加载。",
+  "skills.subtitle": "从 Agent 运行时实时加载。",
   "skills.noAgents": "未加载智能体。",
   "skills.noSkills": "未加载技能。",
   "skills.noDesc": "无描述",
@@ -76,9 +76,9 @@ const zhCN: TranslationMap = {
 
   "settings.title": "设置",
   "settings.subtitle":
-    "运行时连接、工作区和外观。智能体的供应商、模型、技能和权限来自捆绑的 .opencode 配置文件。",
+    "运行时连接、工作区和外观。智能体的供应商、模型、技能和权限来自捆绑的配置文件。",
   "settings.runtime": "智能体运行时",
-  "settings.runtimeHint": "opencode serve，通过 HTTP + SSE API 驱动",
+  "settings.runtimeHint": "Agent serve，通过 HTTP + SSE API 驱动",
   "settings.disconnect": "断开连接",
   "settings.connect": "连接",
   "settings.workspace": "工作区",

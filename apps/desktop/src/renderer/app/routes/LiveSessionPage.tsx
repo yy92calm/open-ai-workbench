@@ -1,19 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FolderOpen, Loader2, NotebookPen, PlugZap } from "lucide-react";
+import { FolderOpen, Loader2, NotebookPen, PlugZap, RefreshCw } from "lucide-react";
 import { DRAFT_KEY, rootSessionOf, subagentActivity, useRuntimeStore } from "@/lib/runtime";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
 import { Composer } from "@/components/thread/Composer";
+import { ModeSwitch } from "@/components/thread/ModeSwitch";
 import { baseName, WorkspaceChip } from "@/components/thread/WorkspaceChip";
 import { WorkflowStarters } from "@/components/thread/WorkflowStarters";
 import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
 import { SessionFilesPane } from "./FilesPage";
 import { cn } from "@/lib/cn";
+import { useResizable } from "@/lib/useResizable";
+import { useUiStore } from "@/lib/store";
 
-/** Live agent session backed by the OpenCode runtime. `/live` (no id) is a blank draft;
+/** Live agent session. `/live` (no id) is a blank draft;
  *  the session is created lazily on the first message, then the URL updates to /live/:id. */
 export function LiveSessionPage() {
   const { sessionId } = useParams();
@@ -48,6 +51,8 @@ export function LiveSessionPage() {
     replyPermission,
     interrupt,
     reconcileRunning,
+    permissionMode,
+    setPermissionMode,
   } = useRuntimeStore();
 
   // A deliberate workspace move restarts the sidecar — expected and brief, so
@@ -71,6 +76,7 @@ export function LiveSessionPage() {
   const onRunCommand = async (name: string, args: string) => afterTurn(await runCommand(name, args));
 
   // Interactions from the thread/inspector fold back into the conversation as follow-up prompts.
+  const setComposerDraft = useUiStore((s) => s.setComposerDraft);
   const handlers: BlockHandlers = {
     onArtifactOpen: openArtifact,
     onFigureComment: (a, title) =>
@@ -78,6 +84,7 @@ export function LiveSessionPage() {
     // Subagent events fold into their own thread; a running task row reads
     // its child's latest step from there.
     subagentActivity: (childId) => subagentActivity(threads[childId]?.blocks),
+    onUserMessageEdit: (text) => setComposerDraft(text),
   };
   const onEvaluate = (expr: string) => void sendPrompt(`Evaluate in the notebook kernel:\n\`\`\`python\n${expr}\n\`\`\``);
 
@@ -154,6 +161,15 @@ export function LiveSessionPage() {
   const activeArtifact = pane?.artifact ?? null;
   const showFiles = !activeArtifact && !!pane?.showFiles;
 
+  // Right pane resizable — reverse: dragging left grows the panel.
+  // No React state during drag (DOM-only), so the preview never re-renders.
+  // isDragging hides heavy pane content (iframes, code viewers) during the
+  // drag so the browser skips their layout — no more jank.
+  const { targetRef: paneRef, handleProps: paneHandle, isDragging: paneDragging } = useResizable(480, 320, Infinity, true);
+  // Refresh key: incrementing forces the pane to re-mount (reload content).
+  const [paneKey, setPaneKey] = useState(0);
+  const refreshPane = useCallback(() => setPaneKey((k) => k + 1), []);
+
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
   const onChatScroll = useScrollMemory(chatRef, `chat:${currentId ?? DRAFT_KEY}`, !historyLoading);
@@ -228,7 +244,7 @@ export function LiveSessionPage() {
         </div>
 
         <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
+          <div className="mx-auto flex max-w-[940px] flex-col gap-5 px-8 py-6">
             {/* Deliberate workspace switches don't render anything at all (they're
                 masked as connected); a genuine boot/reconnect shows only the
                 header badge's pulsing dot — anything appearing and disappearing
@@ -236,10 +252,10 @@ export function LiveSessionPage() {
                 real error/offline states. */}
             {!connected && !connecting && (
               <div className="rounded-card border border-border bg-surface p-5 shadow-card">
-                <div className="text-sm font-medium text-text">OpenCode runtime</div>
+                <div className="text-sm font-medium text-text">Agent runtime</div>
                 <p className="mt-1 text-sm text-muted">
-                  The desktop app runs a bundled OpenCode automatically. In the browser, start one with{" "}
-                  <span className="font-mono">opencode serve</span> and connect.
+                  The desktop app runs a bundled agent runtime automatically. In the browser, start one with{" "}
+                  <span className="font-mono">agent serve</span> and connect.
                 </p>
                 <div className="mt-3 rounded-input bg-surface-2 px-3 py-2 font-mono text-xs text-text">
                   {serverUrl}
@@ -257,19 +273,22 @@ export function LiveSessionPage() {
             {historyLoading && <ThreadSkeleton />}
             {!historyLoading && thread && <BlockList blocks={thread.blocks} handlers={handlers} />}
             {working && (
-              // Typing-indicator at the bottom of the conversation: the message
-              // just echoed above it, so the user always sees the send is alive.
-              <div className="flex min-w-0 items-center gap-2 text-sm text-muted">
-                <Loader2 size={14} className="shrink-0 animate-spin" />
-                <span className="shrink-0">
+              // Typing indicator: three bouncing dots + current tool name
+              <div className="flex min-w-0 items-center gap-2.5 text-sm text-muted">
+                <span className="flex shrink-0 items-center gap-1">
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-accent" />
+                </span>
+                <span className="shrink-0 text-[13px]">
                   {activeRequest
                     ? "Paused — the agent needs your answer below"
                     : sending && !currentId
-                      ? "Starting the session in its folder…"
-                      : "Working…"}
+                      ? "Starting the session…"
+                      : "Working"}
                 </span>
                 {!activeRequest && currentTool && (
-                  <span className="truncate font-mono text-xs" title={currentTool.title}>
+                  <span className="truncate rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-text-dim" title={currentTool.title}>
                     {currentTool.title}
                   </span>
                 )}
@@ -279,7 +298,7 @@ export function LiveSessionPage() {
         </div>
 
         <div className="px-8 pb-5 pt-2">
-          <div className="mx-auto max-w-[760px] space-y-3">
+          <div className="mx-auto max-w-[940px] space-y-3">
             {activeRequest && (
               <InteractionPrompt
                 question={activeQuestion}
@@ -290,6 +309,7 @@ export function LiveSessionPage() {
                 onPermission={(id, reply) => void replyPermission(id, reply)}
               />
             )}
+            <ModeSwitch mode={permissionMode} onChange={(m) => void setPermissionMode(m)} />
             <Composer
               onSend={onSend}
               onRunShell={(c) => void onRunShell(c)}
@@ -306,19 +326,38 @@ export function LiveSessionPage() {
         </div>
       </div>
 
-      {activeArtifact && (
-        <div className="hidden w-[46%] max-w-[720px] shrink-0 lg:block">
-          <InspectorShell
-            inspector={fileInspectorFromBlock(activeArtifact)}
-            onClose={closeArtifact}
-            onEvaluate={onEvaluate}
+      {(activeArtifact || showFiles) && (
+        <>
+          {/* Drag handle to resize the right pane */}
+          <div
+            {...paneHandle}
+            className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
           />
-        </div>
-      )}
-      {!activeArtifact && showFiles && (
-        <div className="hidden w-[46%] max-w-[720px] shrink-0 border-l border-border bg-surface lg:block">
-          <SessionFilesPane onClose={() => setShowFiles(false)} />
-        </div>
+          {activeArtifact && (
+            <div ref={paneRef as React.RefObject<HTMLDivElement>} className="hidden shrink-0 lg:block" style={{ width: 480, contentVisibility: paneDragging ? "hidden" : undefined }}>
+              <div className="relative h-full">
+                <button
+                  onClick={refreshPane}
+                  className="absolute right-2 top-2 z-10 rounded-input border border-border bg-surface p-1.5 text-muted hover:bg-surface-2 hover:text-text"
+                  title="刷新预览"
+                >
+                  <RefreshCw size={14} />
+                </button>
+                <InspectorShell
+                  key={paneKey}
+                  inspector={fileInspectorFromBlock(activeArtifact)}
+                  onClose={closeArtifact}
+                  onEvaluate={onEvaluate}
+                />
+              </div>
+            </div>
+          )}
+          {!activeArtifact && showFiles && (
+            <div ref={paneRef as React.RefObject<HTMLDivElement>} className="hidden shrink-0 border-l border-border bg-surface lg:block" style={{ width: 480, contentVisibility: paneDragging ? "hidden" : undefined }}>
+              <SessionFilesPane key={paneKey} onClose={() => setShowFiles(false)} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -329,15 +368,23 @@ export function LiveSessionPage() {
  *  loads and nothing jumps when the content arrives. */
 function ThreadSkeleton() {
   return (
-    <div className="animate-pulse space-y-4" aria-hidden>
-      <div className="h-11 rounded-card bg-surface-2" />
+    <div className="animate-pulse space-y-5" aria-hidden>
+      {/* User bubble skeleton — right-aligned */}
+      <div className="flex justify-end">
+        <div className="h-11 w-[60%] rounded-[14px] bg-surface-2" />
+      </div>
+      {/* Agent text skeleton — left-aligned, full width */}
       <div className="space-y-2.5 px-1 pt-1">
         <div className="h-3.5 w-11/12 rounded bg-surface-2" />
         <div className="h-3.5 w-4/5 rounded bg-surface-2" />
         <div className="h-3.5 w-2/3 rounded bg-surface-2" />
       </div>
-      <div className="ml-2 h-4 w-2/5 rounded bg-surface-2 opacity-60" />
-      <div className="h-11 rounded-card bg-surface-2" />
+      {/* Tool call skeleton */}
+      <div className="h-9 rounded-lg border border-border-soft bg-surface/60" />
+      {/* Another user bubble */}
+      <div className="flex justify-end">
+        <div className="h-11 w-[45%] rounded-[14px] bg-surface-2" />
+      </div>
       <div className="space-y-2.5 px-1 pt-1">
         <div className="h-3.5 w-5/6 rounded bg-surface-2" />
         <div className="h-3.5 w-3/5 rounded bg-surface-2" />
@@ -349,7 +396,7 @@ function ThreadSkeleton() {
 function ConnBadge({ status }: { status: string }) {
   const tone = status === "ready" ? "text-ok" : status === "error" ? "text-error" : "text-muted";
   return (
-    <span className={cn("flex items-center gap-1.5 text-xs", tone)} title={`OpenCode · ${status}`}>
+    <span className={cn("flex items-center gap-1.5 text-xs", tone)} title={`Agent · ${status}`}>
       <span
         className={cn(
           "h-1.5 w-1.5 rounded-full",
@@ -359,7 +406,7 @@ function ConnBadge({ status }: { status: string }) {
       />
       {/* Ready is the norm — a green dot says it all (hover for detail). Text
           appears only for states that need attention. */}
-      {status !== "ready" && <>OpenCode · {status}</>}
+      {status !== "ready" && <>Agent · {status}</>}
     </span>
   );
 }

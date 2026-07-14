@@ -16,6 +16,7 @@ import { TablePreview } from "./TablePreview";
 import { TableChart } from "./TableChart";
 import { canChart } from "@/lib/tableChart";
 import { DocxView, PptxView, XlsxView } from "./OfficePreview";
+import { JsonView } from "./JsonView";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { cn } from "@/lib/cn";
 
@@ -34,9 +35,9 @@ export function FilePreviewInspector({
   onClose: () => void;
 }) {
   const kind = previewKindForName(data.filename);
-  const needsUrl = kind === "pdf" || kind === "image" || kind === "html";
+  const needsUrl = kind === "pdf" || kind === "image" || kind === "html" || kind === "audio" || kind === "video";
   const needsText =
-    kind === "table" || kind === "text" || kind === "html" || kind === "markdown";
+    kind === "table" || kind === "text" || kind === "html" || kind === "markdown" || kind === "json";
   const needsBytes = kind === "docx" || kind === "xlsx" || kind === "pptx";
 
   const [url, setUrl] = useState<string | null>(null);
@@ -96,7 +97,7 @@ export function FilePreviewInspector({
     };
   }, [data.path, data.content, data.root, kind, needsUrl, needsText, needsBytes]);
 
-  const canToggle = kind === "html" || kind === "markdown";
+  const canToggle = kind === "html" || kind === "markdown" || kind === "json";
 
   // Where the user was in this file, restored when they come back to it —
   // history browsing keeps its own offset so the two don't clobber each other.
@@ -201,6 +202,48 @@ function Body({
     if (kind === "docx") return <DocxView bytes={bytes} scrollKey={`office:${path}`} />;
     if (kind === "xlsx") return <XlsxView bytes={bytes} scrollKey={`office:${path}`} />;
     return <PptxView bytes={bytes} scrollKey={`office:${path}`} />;
+  }
+  if (kind === "json") {
+    if (showCode) {
+      return text !== null ? (
+        <div className="p-3">
+          <CodeViewer code={text} language="json" />
+        </div>
+      ) : (
+        <Note text="Source is available in the desktop app." />
+      );
+    }
+    if (text !== null) {
+      try {
+        const parsed = JSON.parse(text);
+        return <JsonView data={parsed} />;
+      } catch {
+        return <div className="p-3"><CodeViewer code={text} language="json" /></div>;
+      }
+    }
+    return <Note text="Preview is available in the desktop app." />;
+  }
+  if (kind === "audio") {
+    return url ? (
+      <div className="flex items-center justify-center p-8">
+        <audio controls className="w-full max-w-lg">
+          <source src={url} />
+        </audio>
+      </div>
+    ) : (
+      <Note text="Preview is available in the desktop app." />
+    );
+  }
+  if (kind === "video") {
+    return url ? (
+      <div className="flex items-center justify-center p-4">
+        <video controls className="max-h-[60vh] max-w-full rounded-sm bg-black">
+          <source src={url} />
+        </video>
+      </div>
+    ) : (
+      <Note text="Preview is available in the desktop app." />
+    );
   }
   if (kind === "markdown") {
     if (showCode) {

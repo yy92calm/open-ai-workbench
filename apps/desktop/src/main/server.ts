@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { accessSync, cpSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { get as httpGet } from "node:http";
 import { createServer } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { app } from "electron";
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
+import { deploySchedulerProfile, startSchedulerApi, stopSchedulerApi } from "./scheduler";
 import { enrichedPath } from "./shell_env";
 
 let child: ChildProcess | null = null;
@@ -72,7 +74,9 @@ function bundledProfileSource(): string {
   if (app.isPackaged) {
     return join(process.resourcesPath, "app-config");
   }
-  return join(app.getAppPath(), "..", "app-config", ".opencode");
+  // app.getAppPath() → apps/desktop  in dev, so we need two levels up to
+  // reach the repo-root app-config/.opencode directory.
+  return join(app.getAppPath(), "..", "..", "app-config", ".opencode");
 }
 
 function sidecarBinaryPath(): string {
@@ -112,6 +116,13 @@ function freePort(): Promise<number> {
   });
 }
 
+function mcpSchedulerScriptPath(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "scripts", "mcp_scheduler.mjs");
+  }
+  return join(app.getAppPath(), "scripts", "mcp_scheduler.mjs");
+}
+
 export async function startSidecar(): Promise<string> {
   if (child && currentUrl) return currentUrl;
   const port = currentPort ?? (await freePort());
@@ -128,7 +139,12 @@ export async function startSidecar(): Promise<string> {
 
   deployBundledProfile();
 
+  // Start the scheduler HTTP API so the MCP server can reach it
   const password = getServerPassword();
+  const apiInfo = await startSchedulerApi(password);
+
+  // Deploy scheduler profile (skill + command + MCP config) with the live API info
+  deploySchedulerProfile(cfg, mcpSchedulerScriptPath(), apiInfo);
 
   const env: Record<string, string> = {
     OPENCODE_SERVER_PASSWORD: password,
@@ -186,6 +202,11 @@ export async function startSidecar(): Promise<string> {
 
   child = cmd;
   currentUrl = url;
+
+  // Wait until the sidecar is actually accepting connections so that the
+  // caller (and the renderer client) never hit a "connection refused" race.
+  await waitForReady(url, 15_000);
+
   return url;
 }
 
@@ -195,6 +216,25 @@ export function stopSidecar(): void {
     child = null;
   }
   currentUrl = null;
+  // NOTE: scheduler API lifecycle is independent — managed in index.ts
+}
+
+/** Poll the sidecar until it accepts a TCP connection (or timeout). */
+function waitForReady(url: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolve, reject) => {
+    const tryConnect = () => {
+      if (!child) { reject(new Error("sidecar process died")); return; }
+      if (Date.now() > deadline) { reject(new Error("sidecar ready timeout")); return; }
+      const req = httpGet(url, (res: any) => {
+        res.resume(); // drain
+        resolve();
+      });
+      req.on("error", () => { setTimeout(tryConnect, 200); });
+      req.setTimeout(500, () => { req.destroy(); setTimeout(tryConnect, 200); });
+    };
+    tryConnect();
+  });
 }
 
 function log(

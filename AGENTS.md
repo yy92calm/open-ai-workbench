@@ -97,3 +97,11 @@ on LLM coding pitfalls. These guidelines bias toward caution over speed.
 - Transform tasks into verifiable goals: "Write a test that reproduces it, then make it pass."
 - For multi-step tasks, state a brief plan with verification steps.
 - Strong success criteria let you loop independently. Weak criteria require constant clarification.
+
+## 用户偏好
+
+<!-- 用户说"请记住""下次要""不能"时，agent 自动追加到此列表 -->
+
+- 方案文档、注释、README 等所有文档类内容默认使用简体中文。代码（变量名、函数名等）保持英文。
+- 需求变更流程：先在 docs/ 下生成方案文档，再修改代码。方案文档必须包含「设计」和「验证状态」两个章节。
+- 方案文档命名格式：`YYYYMMDD-NN-描述.md`（日期 + 两位序号 + 描述）。

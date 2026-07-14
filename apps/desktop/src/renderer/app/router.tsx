@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, type RouteObject } from "react-router-dom";
+import { createHashRouter, Navigate, type RouteObject } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
 import { SessionPage } from "./routes/SessionPage";
 import { LiveSessionPage } from "./routes/LiveSessionPage";
@@ -26,4 +26,4 @@ export const routes: RouteObject[] = [
   },
 ];
 
-export const router = createBrowserRouter(routes);
+export const router = createHashRouter(routes);

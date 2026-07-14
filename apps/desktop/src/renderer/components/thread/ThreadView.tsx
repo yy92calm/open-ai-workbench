@@ -16,7 +16,7 @@ export function ThreadView({ session }: { session: Session }) {
         )}
       </div>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
+        <div className="mx-auto flex max-w-[940px] flex-col gap-5 px-8 py-6">
           <BlockList blocks={session.blocks} />
         </div>
       </div>

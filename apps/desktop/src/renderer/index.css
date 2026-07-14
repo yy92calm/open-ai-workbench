@@ -13,17 +13,30 @@
 :root,
 [data-theme="light"] {
   --bg: #f7f5ef;
+  --bg-soft: #f2efe7;
   --surface: #ffffff;
   --surface-2: #f2efe7;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f6f4ef;
   --border: #e7e3da;
+  --border-soft: #ede9e1;
   --text: #2a2723;
+  --text-dim: #4b4843;
   --muted: #8c877d;
+  --fg-faint: #a8a49c;
   --accent: #c15f3c;
   --accent-fg: #ffffff;
+  --accent-soft: rgba(193, 95, 60, 0.12);
+  --accent-strong: #d07050;
   --link: #2a6fdb;
   --warn: #c98a2b;
   --ok: #4b8b5b;
   --error: #c0564b;
+  /* Chat bubble tokens */
+  --chat-user-bg: color-mix(in srgb, var(--accent) 9%, var(--bg-elev));
+  --chat-user-border: color-mix(in srgb, var(--accent) 22%, var(--border-soft));
+  --chat-user-fg: var(--text);
+  --chat-user-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 8%, transparent);
   /* Chart design system (P1-5) — validated categorical hues + chart chrome,
      the single source of truth shared with @ai4s/shared and the matplotlib
      style. Light surface = --surface (#ffffff). */
@@ -40,19 +53,32 @@
 }
 
 [data-theme="dark"] {
-  --bg: #16151a;
-  --surface: #1e1d24;
-  --surface-2: #26252d;
-  --border: #33313c;
-  --text: #ece9e2;
-  --muted: #9a958c;
+  --bg: #0e0d12;
+  --bg-soft: #131218;
+  --surface: #1a1920;
+  --surface-2: #22212a;
+  --bg-elev: #1e1d26;
+  --bg-elev-2: #28272f;
+  --border: #2e2d38;
+  --border-soft: #232230;
+  --text: #f0ede6;
+  --text-dim: #c0bdb6;
+  --muted: #8a877f;
+  --fg-faint: #5e5c56;
   --accent: #d0764f;
-  --accent-fg: #16151a;
+  --accent-fg: #0e0d12;
+  --accent-soft: rgba(208, 118, 79, 0.14);
+  --accent-strong: #e08a65;
   --link: #7aa5f0;
   --warn: #d7a24a;
   --ok: #6bb07d;
   --error: #d47a70;
-  /* Same hues stepped for the dark chart surface (--surface #1e1d24). */
+  /* Chat bubble tokens */
+  --chat-user-bg: color-mix(in srgb, var(--accent) 14%, var(--bg-elev-2));
+  --chat-user-border: color-mix(in srgb, var(--accent) 26%, var(--border-soft));
+  --chat-user-fg: var(--text);
+  --chat-user-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 10%, transparent);
+  /* Same hues stepped for the dark chart surface (--surface #1a1920). */
   --series-1: #3987e5;
   --series-2: #199e70;
   --series-3: #c98500;
@@ -61,7 +87,7 @@
   --series-6: #e66767;
   --series-7: #d55181;
   --series-8: #d95926;
-  --chart-grid: #33313c;
+  --chart-grid: #2e2d38;
   --chart-axis: #4a4753;
 }
 
@@ -98,4 +124,19 @@ body {
 
 .drag-region {
   -webkit-app-region: drag;
+}
+
+/* Typing dots bounce animation */
+@keyframes typing-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+.typing-dot { animation: typing-bounce 1.4s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.16s; }
+.typing-dot:nth-child(3) { animation-delay: 0.32s; }
+
+/* Reasoning card gradient line shimmer */
+@keyframes gradient-shimmer {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 0% 200%; }
 }

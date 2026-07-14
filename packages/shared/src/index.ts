@@ -36,17 +36,23 @@ export type ThreadBlock =
   | FigureBlock
   | ArtifactBlock
   | RunningJobsBlock
-  | StatusLineBlock;
+  | StatusLineBlock
+  | TurnDividerBlock
+  | ReasoningBlock;
 
 export interface UserMessageBlock {
   kind: "user";
   text: string;
+  /** Epoch ms when the message was sent. */
+  timestamp?: number;
 }
 
 export interface AgentMessageBlock {
   kind: "agent";
   /** Markdown; inline `code` tokens are rendered as blue mono. */
   markdown: string;
+  /** Epoch ms when the message finished streaming. */
+  timestamp?: number;
 }
 
 export interface StepSummaryBlock {
@@ -74,6 +80,8 @@ export interface ToolCallBlock {
   outputSummary?: string;
   /** Subagent session spawned by this task tool — lets the UI show its live activity. */
   childSessionId?: string;
+  /** When the tool is a bash/shell command, the raw command line. */
+  shellCommand?: string;
 }
 
 export interface DataTableBlock {
@@ -140,6 +148,20 @@ export interface StatusLineBlock {
   kind: "status-line";
   text: string; // e.g. "8 running · 16m 2s"
   tone?: "running" | "done" | "error";
+}
+
+/** Visual divider between conversation turns. */
+export interface TurnDividerBlock {
+  kind: "turn-divider";
+  label?: string;
+}
+
+/** Model reasoning / thinking process — collapsible. */
+export interface ReasoningBlock {
+  kind: "reasoning";
+  text: string;
+  /** True while the reasoning is still streaming. */
+  streaming?: boolean;
 }
 
 // ---- Inspector (right pane) ----
@@ -345,4 +367,51 @@ export function chartPalette(theme: ChartTheme): ChartPalette {
 export function seriesColor(i: number, theme: ChartTheme): string {
   const c = chartPalette(theme).categorical;
   return c[((i % c.length) + c.length) % c.length];
+}
+
+// ---- Scheduler ----
+
+export interface ScheduledTask {
+  id: string;
+  name: string;
+  cron: string;
+  prompt: string;
+  agent?: string;
+  model?: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastRunAt?: string;
+  nextRunAt?: string;
+  tags?: string[];
+}
+
+export interface CreateTaskInput {
+  name: string;
+  cron: string;
+  prompt: string;
+  agent?: string;
+  model?: string;
+  tags?: string[];
+}
+
+export interface UpdateTaskInput {
+  name?: string;
+  cron?: string;
+  prompt?: string;
+  agent?: string;
+  model?: string;
+  tags?: string[];
+}
+
+export interface ExecutionRecord {
+  id: string;
+  taskId: string;
+  taskName: string;
+  triggeredAt: string;
+  status: "running" | "completed" | "failed" | "timeout";
+  sessionId?: string;
+  error?: string;
+  durationMs?: number;
+  completedAt?: string;
 }

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { FilePreviewInspector as FilePreviewInspectorT } from "@workbench/shared";
 import { FilePreviewInspector, PreviewError } from "./FilePreviewInspector";
 
-// The markdown tests below carry inline `content`, so they never hit
+// Markdown/JSON tests below carry inline `content`, so they never hit
 // readArtifact — this mock only feeds the binary-file test.
 vi.mock("@/lib/artifactFile", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/artifactFile")>();
@@ -17,6 +17,7 @@ vi.mock("@/lib/artifactFile", async (importOriginal) => {
       data: "AAEC",
       size: 3,
     })),
+    previewUrl: vi.fn(async () => null),
   };
 });
 
@@ -70,6 +71,62 @@ describe("FilePreviewInspector — binary file behind a text preview", () => {
     render(<FilePreviewInspector data={bin} onClose={() => {}} />);
     expect(await screen.findByText(/binary and has no preview/)).toBeInTheDocument();
     expect(screen.queryByText(/available in the desktop app/)).not.toBeInTheDocument();
+  });
+});
+
+const jsonData: FilePreviewInspectorT = {
+  variant: "file",
+  path: "config/settings.json",
+  filename: "settings.json",
+  artifact: "data",
+  content: JSON.stringify({ name: "test", version: 2, metrics: [1, 2, 3] }, null, 2),
+};
+
+describe("FilePreviewInspector — json", () => {
+  it("renders a collapsible tree view by default", async () => {
+    render(<FilePreviewInspector data={jsonData} onClose={() => {}} />);
+    expect(await screen.findByText(/name/)).toBeInTheDocument();
+    expect(await screen.findByText(/test/)).toBeInTheDocument();
+  });
+
+  it("toggles to the raw JSON source under the Code tab", async () => {
+    render(<FilePreviewInspector data={jsonData} onClose={() => {}} />);
+    await screen.findByText(/name/);
+    await userEvent.click(screen.getByRole("button", { name: /Code/ }));
+    expect(screen.getByText(/"name"/)).toBeInTheDocument();
+  });
+
+  it("falls back to CodeViewer when JSON is invalid", async () => {
+    const bad: FilePreviewInspectorT = {
+      ...jsonData,
+      content: "not valid json",
+    };
+    render(<FilePreviewInspector data={bad} onClose={() => {}} />);
+    expect(await screen.findByText(/not valid json/)).toBeInTheDocument();
+  });
+});
+
+describe("FilePreviewInspector — audio/video", () => {
+  it("shows a fallback note for audio when no file server URL is available", async () => {
+    const audio: FilePreviewInspectorT = {
+      variant: "file",
+      path: "media/song.mp3",
+      filename: "song.mp3",
+      artifact: "data",
+    };
+    render(<FilePreviewInspector data={audio} onClose={() => {}} />);
+    expect(await screen.findByText(/available in the desktop app/)).toBeInTheDocument();
+  });
+
+  it("shows a fallback note for video when no file server URL is available", async () => {
+    const video: FilePreviewInspectorT = {
+      variant: "file",
+      path: "media/clip.mp4",
+      filename: "clip.mp4",
+      artifact: "data",
+    };
+    render(<FilePreviewInspector data={video} onClose={() => {}} />);
+    expect(await screen.findByText(/available in the desktop app/)).toBeInTheDocument();
   });
 });
 

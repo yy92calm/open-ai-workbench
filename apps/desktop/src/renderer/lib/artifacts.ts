@@ -22,6 +22,12 @@ const EXT_KIND: Record<string, ArtifactKind> = {
 const EXT_LANG: Record<string, string> = {
   py: "python", r: "r", jl: "julia", sh: "bash",
   tex: "latex", md: "markdown", csv: "plaintext", tsv: "plaintext",
+  js: "javascript", ts: "typescript", jsx: "jsx", tsx: "tsx",
+  json: "json", yaml: "yaml", yml: "yaml", xml: "xml",
+  sql: "sql", css: "css", scss: "scss", html: "html",
+  go: "go", rs: "rust", java: "java", c: "c", cpp: "cpp",
+  toml: "toml", ini: "ini", cfg: "ini",
+  log: "plaintext", txt: "plaintext",
 };
 
 /** Tools whose input names a file path we can surface as an artifact. */
@@ -41,6 +47,8 @@ const REF_EXTS = [
   "pdf", "html", "htm", "svg", "png", "jpg", "jpeg", "gif", "webp",
   "csv", "tsv", "md", "tex", "json", "py", "ipynb", "r",
   "docx", "xlsx", "pptx",
+  "mp3", "wav", "ogg", "flac", "aac", "m4a",
+  "mp4", "webm", "mov", "avi",
 ];
 const REF_RE = new RegExp(`[\\w./-]+\\.(?:${REF_EXTS.join("|")})\\b`, "gi");
 
@@ -94,7 +102,10 @@ export type PreviewKind =
   | "text"
   | "docx"
   | "xlsx"
-  | "pptx";
+  | "pptx"
+  | "json"
+  | "audio"
+  | "video";
 
 /** How a file should be previewed, from its extension. This is the previewer
  *  registry: native webview viewers first (pdf/html/image via the local file
@@ -107,6 +118,9 @@ export function previewKind(ext: string): PreviewKind {
   if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(e)) return "image";
   if (e === "csv" || e === "tsv") return "table";
   if (e === "md" || e === "markdown") return "markdown";
+  if (e === "json") return "json";
+  if (["mp3", "wav", "ogg", "flac", "aac", "m4a"].includes(e)) return "audio";
+  if (["mp4", "webm", "mov", "avi"].includes(e)) return "video";
   if (e === "docx" || e === "xlsx" || e === "pptx") return e;
   return "text";
 }

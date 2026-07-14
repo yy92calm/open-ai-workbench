@@ -5,8 +5,10 @@ import {
   type AgentInfo,
   type CommandInfo,
   type HistoryMessage,
+  type McpServer,
   type OpenCodeEvent,
   type PermissionAskedEvent,
+  type PermissionMode,
   type PermissionReply,
   type ProviderInfo,
   type QuestionAskedEvent,
@@ -36,7 +38,10 @@ const URL_KEY = "workbench.opencodeUrl";
 const HIDDEN_KEY = "workbench.hiddenExamples";
 
 function initialUrl(): string {
-  if (typeof window === "undefined") return DEFAULT_OPENCODE_URL;
+  if (typeof window === "undefined") return "";
+  // Bundled mode: always wait for bootstrap() to provide the dynamic port.
+  // Don't fall back to DEFAULT_OPENCODE_URL — the sidecar uses a random port.
+  if (isTauri) return "";
   return window.localStorage.getItem(URL_KEY) ?? DEFAULT_OPENCODE_URL;
 }
 function initialHidden(): string[] {
@@ -51,6 +56,7 @@ function initialHidden(): string[] {
 export interface Thread {
   blocks: ThreadBlock[];
   index: Record<string, number>;
+  consecutiveTools: number;
   loaded: boolean;
 }
 
@@ -69,6 +75,7 @@ interface RuntimeState {
   threads: Record<string, Thread>;
   skills: SkillInfo[];
   agents: AgentInfo[];
+  mcpServers: McpServer[];
   /** Slash commands the runtime can run ("/" palette): config commands,
    *  skills and MCP prompts, one merged list from GET /command. */
   commands: CommandInfo[];
@@ -89,14 +96,19 @@ interface RuntimeState {
    *  its own open artifact / Files browser and gets it back when reopened.
    *  In-memory only: an app restart returns every session to a closed pane. */
   panes: Record<string, PaneState>;
+  /** Active permission mode preset. */
+  permissionMode: PermissionMode;
   openArtifact: (a: ArtifactBlock) => void;
   closeArtifact: () => void;
   setShowFiles: (show: boolean) => void;
   answerQuestion: (requestId: string, answers: string[][]) => Promise<void>;
   rejectQuestion: (requestId: string) => Promise<void>;
   replyPermission: (requestId: string, reply: PermissionReply) => Promise<void>;
+  setPermissionMode: (mode: PermissionMode) => Promise<void>;
   setServerUrl: (url: string) => void;
   loadCatalog: () => Promise<void>;
+  loadMcpServers: () => Promise<void>;
+  toggleMcpServer: (name: string, enabled: boolean) => Promise<void>;
   loadProviders: () => Promise<void>;
   setDefaultModel: (model: string) => Promise<void>;
   detectTools: () => Promise<void>;
@@ -145,7 +157,7 @@ interface RuntimeState {
 }
 
 let client: OpenCodeClient | null = null;
-const emptyThread = (): Thread => ({ blocks: [], index: {}, loaded: false });
+const emptyThread = (): Thread => ({ blocks: [], index: {}, consecutiveTools: 0, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
  *  session id once the session exists, so the page never visibly resets. */
 export const DRAFT_KEY = "draft";
@@ -220,18 +232,24 @@ async function performTurn(
   shell = false,
 ): Promise<string | null> {
   if (!client) {
-    set({ error: "Not connected to the OpenCode runtime." });
+    set({ error: "Not connected to the agent runtime." });
     return null;
   }
   if (get().sending) return null; // one send at a time
   const echoKey = get().currentId ?? DRAFT_KEY;
+  const now = Date.now();
   set((s) => {
     const cur = s.threads[echoKey] ?? emptyThread();
+    const newBlocks = [
+      ...cur.blocks,
+      { kind: "turn-divider" as const },
+      { kind: "user" as const, text: echo, timestamp: now },
+    ];
     return {
       sending: true,
       threads: {
         ...s.threads,
-        [echoKey]: { ...cur, loaded: true, blocks: [...cur.blocks, { kind: "user", text: echo }] },
+        [echoKey]: { ...cur, loaded: true, blocks: newBlocks },
       },
     };
   });
@@ -341,7 +359,7 @@ async function performTurn(
   }
 }
 
-/** The live OpenCode client (Settings talks to the runtime's config API directly). */
+/** The live agent client (Settings talks to the runtime's config API directly). */
 export function getClient(): OpenCodeClient | null {
   return client;
 }
@@ -354,6 +372,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   threads: {},
   skills: [],
   agents: [],
+  mcpServers: [],
   commands: [],
   defaultModel: null,
   providers: [],
@@ -370,6 +389,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   sending: false,
   runningSessions: {},
   shellTurns: {},
+  permissionMode: "auto",
 
   // All three write the CURRENT session's pane (DRAFT_KEY on a draft), keeping
   // the artifact inspector and the Files browser mutually exclusive.
@@ -427,6 +447,16 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
   },
 
+  setPermissionMode: async (mode) => {
+    if (!client) return;
+    try {
+      await client.setPermissionMode(mode);
+      set({ permissionMode: mode });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
   setServerUrl: (serverUrl) => {
     if (typeof window !== "undefined") window.localStorage.setItem(URL_KEY, serverUrl);
     set({ serverUrl });
@@ -448,6 +478,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         skills = await client.listSkills();
       }
       set({ skills });
+      void get().loadMcpServers();
       void get().loadProviders();
     } catch {
       /* ignore transient failures */
@@ -461,6 +492,33 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       set({ providers });
     } catch {
       /* ignore transient failures */
+    }
+  },
+
+  loadMcpServers: async () => {
+    if (!client) return;
+    try {
+      const mcpServers = await client.listMcpServers();
+      set({ mcpServers });
+    } catch {
+      /* ignore transient failures */
+    }
+  },
+
+  toggleMcpServer: async (name: string, enabled: boolean) => {
+    if (!client) return;
+    // Optimistic update: flip the local flag immediately so the UI reflects
+    // the toggle without refetching the whole list (which unmounts cards).
+    set((s) => ({
+      mcpServers: s.mcpServers.map((m) =>
+        m.name === name ? { ...m, config: { ...m.config, enabled } } : m,
+      ),
+    }));
+    try {
+      await client.toggleMcpServer(name, enabled);
+    } catch {
+      // Revert on failure.
+      void get().loadMcpServers();
     }
   },
 
@@ -484,6 +542,13 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 
   connect: async () => {
     get().disconnect();
+    // Don't attempt connection if serverUrl is not yet set (bundled mode waits
+    // for bootstrap() to provide the dynamic port).
+    const url = get().serverUrl;
+    if (!url) {
+      set({ status: "offline" });
+      return;
+    }
     // Scope skill discovery to the sidecar's workspace (null in browser dev).
     const directory = await workspacePath();
     set({ workspace: directory });
@@ -491,7 +556,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     // gets null and connects to a user-run passwordless server.
     const password = await runtimePassword();
     const c = new OpenCodeClient({
-      baseUrl: get().serverUrl,
+      baseUrl: url,
       directory: directory ?? undefined,
       password: password ?? undefined,
     });
@@ -503,7 +568,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     c.onEvent((event) => {
       // text.updated now fires per streamed token — logging each one would
       // flood debug.log with an IPC call per token.
-      if (event.type !== "text.updated")
+      if (event.type !== "text.updated" && event.type !== "reasoning.updated")
         void logDebug(`event ← ${event.type}${"sessionId" in event ? " " + event.sessionId : ""}`);
       if ("sessionId" in event && event.sessionId) sseLast.set(event.sessionId, ++sseSeq);
       if (event.type === "error") {
@@ -626,6 +691,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       // Catalog (skills/agents/commands) fills in behind the page — a session
       // switch must not wait on it to show the conversation.
       void get().loadCatalog();
+      // Load the current permission mode from the server.
+      client.getPermissionMode().then((mode) => set({ permissionMode: mode })).catch(() => {});
       // Every reconnect is a window where session.idle can have been missed
       // (the event stream is directory-scoped and torn down on purpose) —
       // check any session still holding a running lock against the server.
@@ -664,18 +731,26 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   bootstrap: async () => {
     void get().detectTools();
     if (!isTauri) return;
+    console.error("[bootstrap] starting bundled runtime");
     void logDebug("bootstrap: starting bundled runtime");
     try {
       const url = await startRuntime();
+      console.error(`[bootstrap] runtime url = ${url}`);
       void logDebug(`bootstrap: runtime at ${url}`);
       if (url) {
+        // Persist the dynamic port so it's available immediately on next restart.
+        // (The port changes each run, but this avoids any race where code tries
+        // to connect before bootstrap() completes.)
+        if (typeof window !== "undefined") window.localStorage.setItem(URL_KEY, url);
         set({ serverUrl: url });
       } else {
-        set({ error: "Failed to start the OpenCode runtime." });
+        console.error("[bootstrap] startRuntime returned null");
+        set({ error: "Failed to start the agent runtime." });
         return;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[bootstrap] FAILED: ${msg}`);
       void logDebug(`bootstrap FAILED: ${msg}`);
       set({ error: msg });
       return;
@@ -929,9 +1004,78 @@ export function datedWorkspaceName(now = new Date()): string {
 export interface FoldState {
   blocks: ThreadBlock[];
   index: Record<string, number>;
+  consecutiveTools: number;
 }
 
 /** Pure reducer: fold one normalized OpenCode event into a thread's blocks. */
+
+function extractInputSummary(tool: string, input?: Record<string, unknown>): string | undefined {
+  if (!input) return undefined;
+  if (tool === "bash" || tool === "shell") {
+    const cmd = typeof input.command === "string" ? input.command : "";
+    return cmd ? `$ ${cmd.length > 80 ? cmd.slice(0, 77) + "..." : cmd}` : undefined;
+  }
+  if (tool === "write" || tool === "edit" || tool === "read") {
+    const fp = typeof input.filePath === "string" ? input.filePath : "";
+    return fp || undefined;
+  }
+  if (tool === "task") {
+    const desc = typeof input.description === "string" ? input.description : "";
+    const subagent = typeof input.subagent_type === "string" ? input.subagent_type : "";
+    return desc ? `${subagent}: ${desc.length > 60 ? desc.slice(0, 57) + "..." : desc}` : undefined;
+  }
+  return undefined;
+}
+
+function extractOutputSummary(tool: string, output?: string, input?: Record<string, unknown>): string | undefined {
+  if (!output) return undefined;
+  const trimmed = output.trim();
+  if (!trimmed) return undefined;
+  if (tool === "write" || tool === "edit") {
+    const lines = trimmed.split("\n").length;
+    const content = typeof input?.content === "string" ? input.content : "";
+    const contentLines = content ? content.split("\n").length : lines;
+    return `${contentLines} 行写入`;
+  }
+  if (tool === "read") {
+    const lines = trimmed.split("\n").length;
+    return `${lines} 行读取`;
+  }
+  if (tool === "bash" || tool === "shell") {
+    const firstLine = trimmed.split("\n")[0];
+    return firstLine.length > 120 ? firstLine.slice(0, 117) + "..." : firstLine;
+  }
+  if (tool === "task") {
+    return trimmed.length > 80 ? trimmed.slice(0, 77) + "..." : trimmed;
+  }
+  const firstLine = trimmed.split("\n")[0];
+  return firstLine.length > 80 ? firstLine.slice(0, 77) + "..." : firstLine;
+}
+
+function extractMeta(tool: string, output?: string, input?: Record<string, unknown>): string | undefined {
+  const parts: string[] = [];
+  if (tool === "write" || tool === "edit") {
+    const content = typeof input?.content === "string" ? input.content : (output ?? "");
+    const bytes = new Blob([content]).size;
+    if (bytes >= 1024) parts.push(`${(bytes / 1024).toFixed(0)}KB`);
+    else parts.push(`${bytes}B`);
+  }
+  if (tool === "bash" || tool === "shell" || tool === "read") {
+    if (output) {
+      const lines = output.split("\n").length;
+      parts.push(`${lines} 行`);
+    }
+  }
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+function errorSummary(output?: string): string | undefined {
+  if (!output) return undefined;
+  const trimmed = output.trim();
+  if (!trimmed) return undefined;
+  const firstLine = trimmed.split("\n")[0];
+  return firstLine.length > 120 ? firstLine.slice(0, 117) + "..." : firstLine;
+}
 /**
  * Tidy a tool-call title for the conversation: show workspace files by their
  * relative path (`demo/analyze.py`), not the full `/Users/.../Workbench/...`
@@ -959,14 +1103,24 @@ export function foldEvent(
         blocks.push({ kind: "agent", markdown: event.text });
         index[key] = blocks.length - 1;
       }
-      return { blocks, index };
+      return { blocks, index, consecutiveTools: 0 };
+    }
+    case "reasoning.updated": {
+      const key = `reasoning:${event.partId}`;
+      if (key in index) {
+        blocks[index[key]] = { kind: "reasoning", text: event.text, streaming: event.streaming };
+      } else {
+        blocks.push({ kind: "reasoning", text: event.text, streaming: event.streaming });
+        index[key] = blocks.length - 1;
+      }
+      return { blocks, index, consecutiveTools: state.consecutiveTools };
     }
     case "tool.updated": {
       // The interactive `question`/`permission` tools render as their own
       // answerable card (InteractionPrompt), not as a blank thread row. `todo*`
       // tools only report an opaque "N todos" count with no useful content —
       // pure noise in the conversation, so drop them.
-      if (/question|permission|^ask$|todo/i.test(event.tool)) return { blocks, index };
+      if (/question|permission|^ask$|todo/i.test(event.tool)) return { ...state };
       const key = `tool:${event.callId}`;
       // Completed MCP tools (and the shell endpoint) report title as "" — and
       // file tools (write/edit/read) only get a title on completion. Fall back
@@ -980,19 +1134,25 @@ export function foldEvent(
       const childSessionId =
         event.childSessionId ??
         (prev?.kind === "tool-call" ? prev.childSessionId : undefined);
+      const isFailed = event.status === "error" || event.status === "failed";
+      const isShell = event.tool === "bash" || event.tool === "shell";
       const block: ThreadBlock = {
         kind: "tool-call",
         title: tidyToolTitle(event.title?.trim() || command || filePath || event.tool || "tool"),
         status: event.status,
+        meta: extractMeta(event.tool, event.output, event.input),
+        inputSummary: extractInputSummary(event.tool, event.input),
+        outputSummary: isFailed
+          ? errorSummary(event.output)
+          : opts?.shellTurn && isShell
+            ? event.output?.replace(/\s+$/, "")
+            : extractOutputSummary(event.tool, event.output, event.input),
         ...(childSessionId ? { childSessionId } : {}),
-        // A user-typed "!" command ran for its output — show it inline.
-        // Agent bash steps stay quiet single-line log entries.
-        ...(opts?.shellTurn && event.tool === "bash" && event.output?.trim()
-          ? { outputSummary: event.output.replace(/\s+$/, "") }
-          : {}),
+        ...(isShell && command ? { shellCommand: command } : {}),
       };
-      if (key in index) blocks[index[key]] = block;
-      else {
+      if (key in index) {
+        blocks[index[key]] = block;
+      } else {
         blocks.push(block);
         index[key] = blocks.length - 1;
       }
@@ -1006,11 +1166,11 @@ export function foldEvent(
           index[akey] = blocks.length - 1;
         }
       }
-      return { blocks, index };
+      return { blocks, index, consecutiveTools: 0 };
     }
     case "session.idle":
       blocks.push({ kind: "status-line", text: "done", tone: "done" });
-      return { blocks, index };
+      return { blocks, index, consecutiveTools: 0 };
     default:
       return state;
   }
@@ -1078,12 +1238,17 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
         .join("")
         .trim();
       const command = asTypedCommand(text);
-      if (command) blocks.push({ kind: "user", text: command });
-      else if (text) blocks.push({ kind: "user", text });
+      const ts = m.completed;
+      blocks.push({ kind: "turn-divider" });
+      if (command) blocks.push({ kind: "user", text: command, ...(ts ? { timestamp: ts } : {}) });
+      else if (text) blocks.push({ kind: "user", text, ...(ts ? { timestamp: ts } : {}) });
     } else {
       for (const p of m.parts) {
         if (p.type === "text" && p.text?.trim()) {
-          blocks.push({ kind: "agent", markdown: p.text });
+          blocks.push({ kind: "agent", markdown: p.text, ...(m.completed ? { timestamp: m.completed } : {}) });
+        }
+        else if (p.type === "reasoning" && p.text?.trim()) {
+          blocks.push({ kind: "reasoning", text: p.text, streaming: false });
         }
         else if (p.type === "tool") {
           // Interactive tools are surfaced by InteractionPrompt, not the thread;
@@ -1097,6 +1262,7 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
           const filePath =
             typeof p.state?.input?.filePath === "string" ? p.state.input.filePath : "";
           const userShell = shellTurn && p.tool === "bash";
+          const isShell = p.tool === "bash" || p.tool === "shell";
           if (userShell) blocks.push({ kind: "user", text: `! ${command}` });
           blocks.push({
             kind: "tool-call",
@@ -1105,6 +1271,7 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
             ...(userShell && p.state?.output?.trim()
               ? { outputSummary: p.state.output.replace(/\s+$/, "") }
               : {}),
+            ...(isShell && command ? { shellCommand: command } : {}),
           });
           const artifact = deriveArtifact({
             type: "tool.updated",
@@ -1128,5 +1295,5 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
       tone: "error",
     });
   }
-  return { blocks, index: {} };
+  return { blocks, index: {}, consecutiveTools: 0 };
 }

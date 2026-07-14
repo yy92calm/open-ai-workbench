@@ -1,4 +1,5 @@
 import { ipcMain, dialog, BrowserWindow } from "electron";
+import { OpenCodeClient, type OpenCodeEvent } from "@workbench/sdk";
 import { CHANNEL, APP_NAMES, APP_IDS } from "./constants";
 import { getStore, removeStoreFile } from "./store";
 import { getLogger, exportDebugLogs } from "./logging";
@@ -10,6 +11,7 @@ import { startPreviewServer, stopPreviewServer, previewToken, previewUrl } from 
 import { detectShells, detectTools, enrichedPath } from "./shell_env";
 import { checkForUpdates } from "./updater";
 import { createMainWindow, getMainWindow } from "./windows";
+import { cronEngine, type CreateTaskInput, type UpdateTaskInput } from "./scheduler";
 
 export function registerIpcHandlers(): void {
   const log = getLogger();
@@ -20,8 +22,56 @@ export function registerIpcHandlers(): void {
 
   // ---- Runtime (sidecar) ----
   ipcMain.handle("start-runtime", async () => {
-    const url = await startSidecar();
-    return url;
+    try {
+      const url = await startSidecar();
+      log.info(`[server] sidecar started at ${url}`);
+      const password = getServerPassword();
+      const directory = workspaceDir();
+      const client = new OpenCodeClient({
+        baseUrl: url,
+        password: password,
+        directory: directory ?? undefined,
+      });
+      // The sidecar may need a moment to finish internal initialization
+      // (e.g. models.dev fetch). Retry the event-stream connection a few
+      // times before giving up.
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          await client.connect();
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          log.warn(`[server] client.connect attempt ${attempt + 1} failed: ${err instanceof Error ? err.message : String(err)}`);
+          if (attempt < 4) await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+      if (lastErr) throw lastErr;
+      cronEngine.setFireCallback(async (task) => {
+        const sessionId = await client.createSession();
+        // Wait for session.idle before returning — this ensures the execution
+        // record stays "running" until the agent actually finishes.
+        const idlePromise = new Promise<void>((resolve) => {
+          const unsubscribe = client.onEvent((event: OpenCodeEvent) => {
+            if (event.type === "session.idle" && event.sessionId === sessionId) {
+              unsubscribe();
+              resolve();
+            }
+          });
+          // Safety timeout: 10 minutes max
+          setTimeout(() => { unsubscribe(); resolve(); }, 10 * 60 * 1000);
+        });
+        await client.sendPrompt(sessionId, task.prompt);
+        await idlePromise;
+        return sessionId;
+      });
+      cronEngine.start();
+      return url;
+    } catch (err) {
+      log.error(`[server] start-runtime failed: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
   });
   ipcMain.handle("runtime-password", () => getServerPassword());
   ipcMain.handle("stop-runtime", () => stopSidecar());
@@ -159,6 +209,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("check-for-updates", async (_e, alertOnUpToDate: boolean) => {
     await checkForUpdates(alertOnUpToDate);
   });
+
+  // ---- Scheduler ----
+  ipcMain.handle("scheduler:list", () => cronEngine.listTasks());
+  ipcMain.handle("scheduler:create", (_e, task: CreateTaskInput) => cronEngine.addTask(task));
+  ipcMain.handle("scheduler:update", (_e, id: string, patch: UpdateTaskInput) => cronEngine.updateTask(id, patch));
+  ipcMain.handle("scheduler:delete", (_e, id: string) => cronEngine.removeTask(id));
+  ipcMain.handle("scheduler:toggle", (_e, id: string, enabled: boolean) => cronEngine.toggleTask(id, enabled));
+  ipcMain.handle("scheduler:fire-now", (_e, id: string) => cronEngine.fireNow(id));
+  ipcMain.handle("scheduler:history", (_e, taskId?: string, limit?: number) => cronEngine.getHistory(taskId, limit));
 
   log.info("IPC handlers registered");
 }

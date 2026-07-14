@@ -12,7 +12,8 @@ export const isDesktop = true;
 export async function startRuntime(): Promise<string | null> {
   try {
     return await api().startRuntime();
-  } catch {
+  } catch (err) {
+    console.error("[startRuntime] failed:", err);
     return null;
   }
 }
@@ -120,4 +121,105 @@ export async function logDebug(message: string): Promise<void> {
   try {
     await api().logDebug(message);
   } catch { /* never break the app on diagnostics */ }
+}
+
+// ---- Scheduler ----
+
+export interface ScheduledTask {
+  id: string;
+  name: string;
+  cron: string;
+  prompt: string;
+  agent?: string;
+  model?: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastRunAt?: string;
+  nextRunAt?: string;
+  tags?: string[];
+}
+
+export interface CreateTaskInput {
+  name: string;
+  cron: string;
+  prompt: string;
+  agent?: string;
+  model?: string;
+  tags?: string[];
+}
+
+export interface UpdateTaskInput {
+  name?: string;
+  cron?: string;
+  prompt?: string;
+  agent?: string;
+  model?: string;
+  tags?: string[];
+}
+
+export interface ExecutionRecord {
+  id: string;
+  taskId: string;
+  taskName: string;
+  triggeredAt: string;
+  status: "running" | "completed" | "failed" | "timeout";
+  sessionId?: string;
+  error?: string;
+  durationMs?: number;
+  completedAt?: string;
+}
+
+export async function schedulerList(): Promise<ScheduledTask[]> {
+  try {
+    return await api().schedulerList() as ScheduledTask[];
+  } catch {
+    return [];
+  }
+}
+
+export async function schedulerCreate(task: CreateTaskInput): Promise<ScheduledTask | null> {
+  try {
+    return await api().schedulerCreate(task) as ScheduledTask;
+  } catch {
+    return null;
+  }
+}
+
+export async function schedulerUpdate(id: string, patch: UpdateTaskInput): Promise<ScheduledTask | null> {
+  try {
+    return await api().schedulerUpdate(id, patch) as ScheduledTask;
+  } catch {
+    return null;
+  }
+}
+
+export async function schedulerDelete(id: string): Promise<void> {
+  try {
+    await api().schedulerDelete(id);
+  } catch { /* ignore */ }
+}
+
+export async function schedulerToggle(id: string, enabled: boolean): Promise<ScheduledTask | null> {
+  try {
+    return await api().schedulerToggle(id, enabled) as ScheduledTask;
+  } catch {
+    return null;
+  }
+}
+
+export async function schedulerFireNow(id: string): Promise<ExecutionRecord | null> {
+  try {
+    return await api().schedulerFireNow(id) as ExecutionRecord;
+  } catch {
+    return null;
+  }
+}
+
+export async function schedulerHistory(taskId?: string, limit?: number): Promise<ExecutionRecord[]> {
+  try {
+    return await api().schedulerHistory(taskId, limit) as ExecutionRecord[];
+  } catch {
+    return [];
+  }
 }

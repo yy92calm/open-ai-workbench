@@ -1,4 +1,4 @@
-import { app, Event } from "electron";
+import { app } from "electron";
 import contextMenu from "electron-context-menu";
 import { homedir } from "node:os";
 import { CHANNEL, APP_NAMES, APP_IDS } from "./constants";
@@ -9,6 +9,7 @@ import { setupAutoUpdater } from "./updater";
 import { stopSidecar, deployBundledProfile } from "./server";
 import { killAllKernels } from "./kernel";
 import { stopPreviewServer, startPreviewServer } from "./preview_server";
+import { cronEngine, stopSchedulerApi } from "./scheduler";
 
 contextMenu({ showSaveImageAs: true });
 
@@ -37,18 +38,28 @@ app.on("second-instance", () => {
 });
 
 app.on("before-quit", () => {
+  cronEngine.stop();
   stopSidecar();
+  stopSchedulerApi();
   killAllKernels();
   stopPreviewServer();
 });
 
 app.on("will-quit", () => {
+  cronEngine.stop();
   stopSidecar();
+  stopSchedulerApi();
+  killAllKernels();
+  stopPreviewServer();
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
+    cronEngine.stop();
     stopSidecar();
+    stopSchedulerApi();
+    killAllKernels();
+    stopPreviewServer();
     app.exit(0);
   });
 }

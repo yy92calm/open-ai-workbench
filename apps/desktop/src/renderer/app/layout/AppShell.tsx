@@ -6,8 +6,11 @@ import { Toaster } from "@/components/ui/Toaster";
 import { mockProject } from "@/lib/mock";
 import { useRuntimeStore } from "@/lib/runtime";
 import { openExternal } from "@/lib/electron";
+import { useResizable } from "@/lib/useResizable";
 
 export function AppShell() {
+  const { targetRef: sidebarRef, handleProps: sidebarHandle } = useResizable(232, 180, 400);
+
   useEffect(() => {
     void useRuntimeStore.getState().bootstrap();
   }, []);
@@ -29,7 +32,14 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
-      <Sidebar project={mockProject} />
+      <div ref={sidebarRef as React.RefObject<HTMLDivElement>} style={{ width: 232 }} className="shrink-0">
+        <Sidebar project={mockProject} />
+      </div>
+      {/* Drag handle to resize the left sidebar */}
+      <div
+        {...sidebarHandle}
+        className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
+      />
       <main className="min-w-0 flex-1">
         <Outlet />
       </main>

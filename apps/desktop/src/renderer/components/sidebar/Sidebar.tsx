@@ -51,7 +51,7 @@ export function Sidebar({ project }: { project: Project }) {
   const overlayTitlebar = isDesktop && navigator.userAgent.includes("Mac");
 
   return (
-    <aside className="flex h-full w-[232px] shrink-0 flex-col border-r border-border bg-surface">
+    <aside className="flex h-full w-full shrink-0 flex-col border-r border-border bg-surface">
       {overlayTitlebar && <div className="h-8 shrink-0 drag-region" />}
       <div className={cn("px-4 pb-3", overlayTitlebar ? "pt-1" : "pt-4")}>
         <div className="flex items-baseline gap-1.5">

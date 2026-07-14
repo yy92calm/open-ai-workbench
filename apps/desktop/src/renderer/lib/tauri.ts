@@ -17,5 +17,20 @@ export {
   pickFolder,
   detectTools,
   logDebug,
+  schedulerList,
+  schedulerCreate,
+  schedulerUpdate,
+  schedulerDelete,
+  schedulerToggle,
+  schedulerFireNow,
+  schedulerHistory,
 } from "./electron";
-export type { JupyterStatus, SaveResult, ToolStatus } from "./electron";
+export type {
+  JupyterStatus,
+  SaveResult,
+  ToolStatus,
+  ScheduledTask,
+  CreateTaskInput,
+  UpdateTaskInput,
+  ExecutionRecord,
+} from "./electron";
