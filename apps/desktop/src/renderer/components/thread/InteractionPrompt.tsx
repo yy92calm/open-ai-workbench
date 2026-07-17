@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, HelpCircle, ShieldQuestion, X } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Check, HelpCircle, Paperclip, ShieldQuestion, X } from "lucide-react";
 import type { PermissionAskedEvent, PermissionReply, QuestionAskedEvent } from "@workbench/sdk";
 import { cn } from "@/lib/cn";
 import { PromptShelf } from "./PromptShelf";
@@ -10,6 +10,7 @@ export function InteractionPrompt({
   question,
   permission,
   origin,
+  fileSuggestions = [],
   onAnswer,
   onReject,
   onPermission,
@@ -17,12 +18,13 @@ export function InteractionPrompt({
   question?: QuestionAskedEvent;
   permission?: PermissionAskedEvent;
   origin?: string;
+  fileSuggestions?: string[];
   onAnswer: (requestId: string, answers: string[][]) => void;
   onReject: (requestId: string) => void;
   onPermission: (requestId: string, reply: PermissionReply) => void;
 }) {
   if (question) {
-    return <QuestionCard key={question.requestId} question={question} origin={origin} onAnswer={onAnswer} onReject={onReject} />;
+    return <QuestionCard key={question.requestId} question={question} origin={origin} fileSuggestions={fileSuggestions} onAnswer={onAnswer} onReject={onReject} />;
   }
   if (permission) {
     return <PermissionCard key={permission.requestId} permission={permission} origin={origin} onReply={onPermission} />;
@@ -33,11 +35,13 @@ export function InteractionPrompt({
 function QuestionCard({
   question,
   origin,
+  fileSuggestions,
   onAnswer,
   onReject,
 }: {
   question: QuestionAskedEvent;
   origin?: string;
+  fileSuggestions?: string[];
   onAnswer: (requestId: string, answers: string[][]) => void;
   onReject: (requestId: string) => void;
 }) {
@@ -68,9 +72,9 @@ function QuestionCard({
       subtitle={origin ? `由 ${origin} 提问` : undefined}
       tone="accent"
       headerRight={
-<button className="text-xs text-muted hover:text-text" onClick={() => onReject(question.requestId)}>
-              跳过
-            </button>
+        <button className="text-xs text-muted hover:text-text" onClick={() => onReject(question.requestId)}>
+          跳过
+        </button>
       }
       footer={
         !isQuickPick && (
@@ -122,17 +126,87 @@ function QuestionCard({
               })}
             </div>
             {it.custom && (
-              <input
+              <CustomInput
                 value={custom[qi] ?? ""}
-                onChange={(e) => setCustom((c) => ({ ...c, [qi]: e.target.value }))}
-                placeholder="或输入自定义答案…"
-                className="w-full rounded-input border border-border bg-surface px-3 py-2 text-[13px] text-text outline-none placeholder:text-muted focus:border-accent/60"
+                onChange={(v) => setCustom((c) => ({ ...c, [qi]: v }))}
+                fileSuggestions={fileSuggestions}
               />
             )}
           </div>
         ))}
       </div>
     </PromptShelf>
+  );
+}
+
+/** Custom answer input with @ file mention support. */
+function CustomInput({
+  value,
+  onChange,
+  fileSuggestions,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  fileSuggestions?: string[];
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  // @ mention detection
+  const atMatch = useMemo(() => value.match(/@(\S*)$/), [value]);
+  const atTyping = !!atMatch && atMatch.index !== undefined && atMatch.index >= 0;
+  const atQuery = atTyping ? atMatch![1].toLowerCase() : "";
+  const fileMatches = atTyping && fileSuggestions && fileSuggestions.length > 0
+    ? fileSuggestions
+        .filter((f) => f.toLowerCase().includes(atQuery))
+        .sort((a, b) => Number(b.toLowerCase().startsWith(atQuery)) - Number(a.toLowerCase().startsWith(atQuery)))
+        .slice(0, 8)
+    : [];
+  const atOpen = fileMatches.length > 0;
+
+  const pickFile = (filePath: string) => {
+    if (!atMatch) return;
+    const before = value.slice(0, atMatch.index);
+    const fileName = filePath.split(/[\\/]/).pop() ?? filePath;
+    onChange(`${before}@${fileName} `);
+    ref.current?.focus();
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (atOpen && e.key === "Enter") {
+      e.preventDefault();
+      pickFile(fileMatches[0]);
+    }
+    if (atOpen && e.key === "Escape") {
+      e.preventDefault();
+      if (atMatch) onChange(value.slice(0, atMatch.index));
+    }
+  };
+
+  return (
+    <div className="relative">
+      {atOpen && (
+        <div className="absolute bottom-full left-0 right-0 z-dropdown mb-1 max-h-36 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-card">
+          {fileMatches.map((f) => (
+            <button
+              key={f}
+              className="flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left text-xs hover:bg-surface-2"
+              onMouseDown={(e) => { e.preventDefault(); pickFile(f); }}
+            >
+              <Paperclip size={11} className="shrink-0 text-muted" />
+              <span className="min-w-0 flex-1 truncate font-mono text-text">{f}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder="或输入自定义答案…（输入 @ 引用文件）"
+        className="w-full rounded-input border border-border bg-surface px-3 py-2 text-[13px] text-text outline-none placeholder:text-muted focus:border-accent/60"
+      />
+    </div>
   );
 }
 

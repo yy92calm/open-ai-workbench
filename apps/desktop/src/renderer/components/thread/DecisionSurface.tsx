@@ -53,6 +53,7 @@ export function DecisionSurface({
           question={question}
           permission={question ? undefined : permission}
           origin={origin}
+          fileSuggestions={composer.fileSuggestions}
           onAnswer={onAnswer}
           onReject={onReject}
           onPermission={onPermission}
