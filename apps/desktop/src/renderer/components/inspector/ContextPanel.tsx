@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { Wrench, Brain, Shield, Sigma, X } from "lucide-react";
+import { Wrench, Sigma, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useRuntimeStore } from "@/lib/runtime";
 import { TokenUsage } from "./TokenUsage";
 
-type Tab = "tools" | "tokens" | "memory" | "rules";
+type Tab = "tools" | "context";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: "context", label: "上下文", icon: <Sigma size={13} /> },
   { id: "tools", label: "工具", icon: <Wrench size={13} /> },
-  { id: "tokens", label: "Token", icon: <Sigma size={13} /> },
-  { id: "memory", label: "记忆", icon: <Brain size={13} /> },
-  { id: "rules", label: "规则", icon: <Shield size={13} /> },
 ];
 
 /**
@@ -18,7 +16,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
  * Shown when no artifact is actively being previewed.
  */
 export function ContextPanel({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>("tokens");
+  const [tab, setTab] = useState<Tab>("context");
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -51,10 +49,8 @@ export function ContextPanel({ onClose }: { onClose: () => void }) {
 
       {/* Tab content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "context" && <TokenUsage />}
         {tab === "tools" && <ToolsTab />}
-        {tab === "tokens" && <TokenUsage />}
-        {tab === "memory" && <PlaceholderTab title="记忆" description="会话记忆将在此处显示。" />}
-        {tab === "rules" && <PlaceholderTab title="规则" description="项目规则和指南将在此处显示。" />}
       </div>
     </div>
   );
@@ -109,17 +105,6 @@ function ToolsTab() {
             ))}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function PlaceholderTab({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="flex h-full items-center justify-center p-6 text-center">
-      <div className="space-y-1.5">
-        <div className="text-[12px] font-medium text-muted">{title}</div>
-        <div className="text-[11px] text-muted/70">{description}</div>
       </div>
     </div>
   );

@@ -172,18 +172,37 @@ export function LiveSessionPage() {
   const onChatScroll = useScrollMemory(chatRef, `chat:${currentId ?? DRAFT_KEY}`, !historyLoading);
   // Scroll-to-bottom FAB: visible when the user has scrolled up.
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const scrollToBottom = () => {
+    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
+  };
+  // Track whether the user is near the bottom for auto-scroll.
+  const nearBottomRef = useRef(true);
+
+  // Keep nearBottomRef in sync with the scroll position.
   const onChatScrollWithBtn = (e: React.UIEvent<HTMLDivElement>) => {
     onChatScroll(e);
     const el = e.currentTarget;
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    nearBottomRef.current = distFromBottom < 100;
     setShowScrollBtn(distFromBottom > 200);
   };
-  const scrollToBottom = () => {
-    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
-  };
+
+  // When a decision surface (question/permission) appears, auto-scroll to
+  // the bottom so the user sees it without having to scroll manually.
+  useEffect(() => {
+    if (!activeRequest) return;
+    scrollToBottom();
+  }, [activeRequest]);
+
+  // Auto-scroll when new blocks arrive and the user is near the bottom.
+  const blockCount = thread?.blocks.length ?? 0;
+  useEffect(() => {
+    if (!nearBottomRef.current) return;
+    scrollToBottom();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockCount]);
 
   // When the agent starts working a notebook (Jupyter MCP), open it beside the
-  // chat automatically — once per notebook, so a manual close stays closed.
   const autoOpened = useRef(new Set<string>());
   useEffect(() => {
     const agentNb = uniqueNotebooks.find(
@@ -203,12 +222,8 @@ export function LiveSessionPage() {
           title={title}
           rightPanelOpen={!!(activeArtifact || showFiles)}
           onToggleRightPanel={() => {
-            if (activeArtifact || showFiles) {
-              if (activeArtifact) closeArtifact();
-              else setShowFiles(false);
-            } else {
-              setShowFiles(true);
-            }
+            if (activeArtifact) closeArtifact();
+            else setShowFiles(!showFiles);
           }}
         />
         <div ref={chatRef} onScroll={onChatScrollWithBtn} className="relative flex-1 overflow-y-auto">

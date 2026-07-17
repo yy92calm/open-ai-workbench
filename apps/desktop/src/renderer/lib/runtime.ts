@@ -402,8 +402,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   closeArtifact: () =>
     set((s) => {
       const key = s.currentId ?? DRAFT_KEY;
-      const showFiles = s.panes[key]?.showFiles ?? false;
-      return { panes: { ...s.panes, [key]: { artifact: null, showFiles } } };
+      return { panes: { ...s.panes, [key]: { artifact: null, showFiles: true } } };
     }),
   setShowFiles: (show) =>
     set((s) => {

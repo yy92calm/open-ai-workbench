@@ -14,6 +14,7 @@ interface TokenEstimate {
  * Used for relative sizing, not exact billing.
  */
 function estimateTokens(text: string): number {
+  if (!text) return 0;
   return Math.ceil(text.length / 4);
 }
 
@@ -58,10 +59,11 @@ const WARNING_AT = 0.7;
 const DANGER_AT = 0.9;
 
 function Ring({ pct }: { pct: number }) {
+  const safePct = Number.isFinite(pct) ? Math.min(pct, 1) : 0;
   const r = 36;
   const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - Math.min(pct, 1));
-  const tone = pct >= DANGER_AT ? "var(--error)" : pct >= WARNING_AT ? "var(--warn)" : "var(--ok)";
+  const offset = circ * (1 - safePct);
+  const tone = safePct >= DANGER_AT ? "var(--error)" : safePct >= WARNING_AT ? "var(--warn)" : "var(--ok)";
 
   return (
     <svg width="96" height="96" viewBox="0 0 96 96" className="shrink-0">
@@ -78,7 +80,7 @@ function Ring({ pct }: { pct: number }) {
         style={{ transition: "stroke-dashoffset 0.4s ease, stroke 0.3s ease" }}
       />
       <text x="48" y="48" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--text)">
-        {(pct * 100).toFixed(0)}%
+        {(safePct * 100).toFixed(0)}%
       </text>
     </svg>
   );
@@ -91,21 +93,55 @@ function Ring({ pct }: { pct: number }) {
 export function TokenUsage() {
   const currentId = useRuntimeStore((s) => s.currentId);
   const threads = useRuntimeStore((s) => s.threads);
+  const sessions = useRuntimeStore((s) => s.sessions);
+  const defaultModel = useRuntimeStore((s) => s.defaultModel);
   const thread = currentId ? threads[currentId] : threads[DRAFT_KEY];
+  const session = sessions.find((s) => s.id === currentId);
+  const modelName = defaultModel ? defaultModel.split("/").pop()! : null;
 
   const estimates = useMemo(() => countBlocks(thread?.blocks ?? []), [thread]);
-  const totalTokens = estimates.reduce((s, e) => s + e.tokens, 0);
-  const totalChars = estimates.reduce((s, e) => s + e.chars, 0);
+  const totals = useMemo(() => {
+    let tokens = 0;
+    let chars = 0;
+    for (const e of estimates) {
+      tokens += Number.isFinite(e.tokens) ? e.tokens : 0;
+      chars += Number.isFinite(e.chars) ? e.chars : 0;
+    }
+    return { tokens, chars };
+  }, [estimates]);
+  const totalTokens = totals.tokens;
+  const totalChars = totals.chars;
   const pct = Math.min(totalTokens / CONTEXT_WINDOW, 1);
-  const tone = pct >= DANGER_AT ? "text-error" : pct >= WARNING_AT ? "text-warn" : "text-ok";
+  const safePct = Number.isFinite(pct) ? pct : 0;
+  const tone = safePct >= DANGER_AT ? "text-error" : safePct >= WARNING_AT ? "text-warn" : "text-ok";
 
   return (
-    <div className="flex flex-col items-center gap-4 p-4">
+    <div className="flex flex-col gap-4 p-4">
+      {/* Session info */}
+      <div className="space-y-1 rounded-input bg-surface-2 px-3 py-2">
+        {session?.title && (
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted">会话</span>
+            <span className="truncate text-text ml-2" title={session.title}>{session.title}</span>
+          </div>
+        )}
+        {modelName && (
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted">模型</span>
+            <span className="text-text">{modelName}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted">消息数</span>
+          <span className="text-text">{thread?.blocks.length ?? 0}</span>
+        </div>
+      </div>
+
       {/* Ring */}
       <div className="flex flex-col items-center gap-1">
-        <Ring pct={pct} />
+        <Ring pct={safePct} />
         <span className={cn("text-[11px] font-medium", tone)}>
-          {pct >= DANGER_AT ? "接近上限" : pct >= WARNING_AT ? "即将占满" : "充足"}
+          {safePct >= DANGER_AT ? "接近上限" : safePct >= WARNING_AT ? "即将占满" : "充足"}
         </span>
       </div>
 
@@ -113,9 +149,11 @@ export function TokenUsage() {
       <div className="w-full text-center">
         <div className="text-[18px] font-semibold text-text">{totalTokens.toLocaleString()}</div>
         <div className="text-[11px] text-muted">预估 Token 数</div>
-        <div className="text-[11px] text-muted">
-          上下文窗口上限 {CONTEXT_WINDOW.toLocaleString()}
-        </div>
+        {totalTokens > 0 && (
+          <div className="text-[11px] text-muted">
+            上下文窗口上限 {CONTEXT_WINDOW.toLocaleString()}
+          </div>
+        )}
       </div>
 
       {/* Breakdown */}
