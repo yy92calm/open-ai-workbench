@@ -16,11 +16,11 @@ export function ThreadView({ session }: { session: Session }) {
         )}
       </div>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[940px] flex-col gap-5 px-8 py-6">
+        <div className="mx-auto flex max-w-[880px] flex-col gap-5 px-6 py-6">
           <BlockList blocks={session.blocks} />
         </div>
       </div>
-      <div className="px-8 pb-5 pt-2">
+      <div className="px-6 pb-5 pt-2">
         <div className="mx-auto flex max-w-[760px] items-center gap-3 rounded-card border border-border bg-surface-2/60 px-4 py-3 text-sm text-muted">
           <Sparkles size={16} className="text-accent" />
           <span>This is a sample session. Start a live agent session to chat for real.</span>

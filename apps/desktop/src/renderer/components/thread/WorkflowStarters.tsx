@@ -1,4 +1,5 @@
-import { ChevronRight, FileSearch, LineChart, Terminal } from "lucide-react";
+import { ChevronRight, FileSearch, LineChart, Terminal, Command } from "lucide-react";
+import logo from "@/assets/logo.webp";
 
 export interface WorkflowStarter {
   id: string;
@@ -47,10 +48,14 @@ export const WORKFLOW_STARTERS: WorkflowStarter[] = [
  */
 export function WorkflowStarters({ onPick }: { onPick: (prompt: string) => void }) {
   return (
-    <div className="flex min-h-[62vh] flex-col items-center justify-center">
-      <div className="w-full max-w-[500px]">
+    <div className="relative flex min-h-[62vh] flex-col items-center justify-center">
+      {/* Subtle warm gradient background */}
+      <div className="pointer-events-none absolute inset-0 -top-12 bg-gradient-to-b from-accent/[0.04] via-transparent to-transparent" />
+      <div className="relative w-full max-w-[500px]">
         <div className="text-center">
-          <div className="text-[10.5px] font-medium uppercase tracking-[0.2em] text-muted">
+          {/* Brand logo */}
+          <img src={logo} alt="" className="mx-auto h-[36px] w-auto opacity-80" />
+          <div className="mt-4 text-[10.5px] font-medium uppercase tracking-[0.2em] text-muted">
             New session
           </div>
           <h2 className="mt-2.5 font-serif text-[26px] leading-tight text-text">
@@ -66,8 +71,10 @@ export function WorkflowStarters({ onPick }: { onPick: (prompt: string) => void 
             <button
               key={s.id}
               onClick={() => onPick(s.prompt)}
-              className="group flex w-full items-center gap-3.5 border-t border-border px-4 py-3.5 text-left transition-colors first:border-t-0 hover:bg-surface-2"
+              className="group relative flex w-full items-center gap-3.5 border-t border-border px-4 py-3.5 text-left transition-colors first:border-t-0 hover:bg-surface-2"
             >
+              {/* Accent left border on hover */}
+              <span className="absolute left-0 top-1/2 h-6 w-[2px] -translate-y-1/2 rounded-r-full bg-accent opacity-0 transition-opacity group-hover:opacity-100" />
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-accent ring-1 ring-border transition-colors group-hover:bg-surface">
                 {s.icon}
               </span>
@@ -81,6 +88,14 @@ export function WorkflowStarters({ onPick }: { onPick: (prompt: string) => void 
               />
             </button>
           ))}
+        </div>
+
+        {/* Keyboard shortcut hint */}
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-fg-faint">
+          <Command size={11} />
+          <span>Press</span>
+          <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[10px]">/</kbd>
+          <span>to search commands</span>
         </div>
       </div>
     </div>

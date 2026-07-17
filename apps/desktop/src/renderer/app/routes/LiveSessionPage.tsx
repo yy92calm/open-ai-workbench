@@ -1,17 +1,18 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FolderOpen, Loader2, NotebookPen, PlugZap, RefreshCw } from "lucide-react";
+import { FolderOpen, Loader2, NotebookPen, PlugZap, RefreshCw, ArrowDown } from "lucide-react";
 import { DRAFT_KEY, rootSessionOf, subagentActivity, useRuntimeStore } from "@/lib/runtime";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
+import { JumpBar } from "@/components/thread/JumpBar";
 import { Composer } from "@/components/thread/Composer";
 import { ModeSwitch } from "@/components/thread/ModeSwitch";
-import { baseName, WorkspaceChip } from "@/components/thread/WorkspaceChip";
+import { baseName } from "@/components/thread/WorkspaceChip";
 import { WorkflowStarters } from "@/components/thread/WorkflowStarters";
 import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
-import { SessionFilesPane } from "./FilesPage";
+import { ContextPanel } from "@/components/inspector/ContextPanel";
 import { cn } from "@/lib/cn";
 import { useResizable } from "@/lib/useResizable";
 import { useUiStore } from "@/lib/store";
@@ -96,6 +97,15 @@ export function LiveSessionPage() {
   const historyLoading = connected && !!sessionId && !thread?.loaded;
   const title = sessions.find((s) => s.id === currentId)?.title;
   const isEmpty = !thread || thread.blocks.length === 0;
+  // Extract file paths from thread blocks for @ mention suggestions
+  const fileSuggestions = useMemo(() => {
+    if (!thread) return [];
+    const paths = new Set<string>();
+    for (const b of thread.blocks) {
+      if (b.kind === "artifact") paths.add(b.path);
+    }
+    return Array.from(paths);
+  }, [thread]);
   // The turn lifecycle: `sending` covers click → POST accepted (incl. the
   // dated-folder setup on a first message); `running` covers the agent
   // working until session.idle. Together they lock the composer and show the
@@ -173,6 +183,17 @@ export function LiveSessionPage() {
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
   const onChatScroll = useScrollMemory(chatRef, `chat:${currentId ?? DRAFT_KEY}`, !historyLoading);
+  // Scroll-to-bottom FAB: visible when the user has scrolled up.
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const onChatScrollWithBtn = (e: React.UIEvent<HTMLDivElement>) => {
+    onChatScroll(e);
+    const el = e.currentTarget;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollBtn(distFromBottom > 200);
+  };
+  const scrollToBottom = () => {
+    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
+  };
 
   // When the agent starts working a notebook (Jupyter MCP), open it beside the
   // chat automatically — once per notebook, so a manual close stays closed.
@@ -191,60 +212,53 @@ export function LiveSessionPage() {
   return (
     <div className="flex h-full min-w-0">
       <div className="flex h-full min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-2 border-b border-border px-6 py-2.5">
-          <h1 className="truncate text-[13px] font-medium text-text">
-            {/* A URL with a session id is never a draft — while its title or
-                history is still loading (cross-folder opens take a moment),
-                stay blank rather than flashing the "New session" empty state. */}
-            {sessionId ? (title ?? "") : "New session"}
-          </h1>
-          <WorkspaceChip />
-          <div className="flex-1" />
-          <ConnBadge status={displayStatus} />
-          {uniqueNotebooks.map((nb) => (
-            <button
-              key={nb.path}
-              onClick={() => openArtifact(nb)}
-              className={cn(
-                "flex items-center gap-1 rounded-input px-2 py-1 font-mono text-xs ring-1 ring-border hover:bg-surface-2",
-                activeArtifact?.path === nb.path ? "bg-surface-2 text-text" : "bg-surface text-muted",
+        <div ref={chatRef} onScroll={onChatScrollWithBtn} className="relative flex-1 overflow-y-auto">
+          {/* Minimal floating toolbar at top-right for Files/Notebook */}
+          <div className="sticky top-2 z-10 flex justify-end px-4">
+            <div className="flex items-center gap-1.5 rounded-full border border-border-soft/60 bg-surface/80 px-2 py-1 shadow-card backdrop-blur-sm">
+              {uniqueNotebooks.map((nb) => (
+                <button
+                  key={nb.path}
+                  onClick={() => openArtifact(nb)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] transition-colors",
+                    activeArtifact?.path === nb.path ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text",
+                  )}
+                  title={`Open ${nb.path}`}
+                >
+                  <NotebookPen size={10} />
+                  <span className="max-w-[120px] truncate">{nb.filename}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => setShowFiles(!showFiles)}
+                className={cn(
+                  "flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors",
+                  showFiles ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text",
+                )}
+                title={`Browse this session's folder${workspace ? ` — ${workspace}` : ""}`}
+                aria-pressed={showFiles}
+              >
+                <FolderOpen size={10} />
+                <span className="max-w-[100px] truncate">
+                  {sessionId && workspace ? baseName(workspace) : "Files"}
+                </span>
+              </button>
+              {!connected && (
+                <button
+                  onClick={connect}
+                  disabled={connecting}
+                  className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
+                >
+                  {connecting ? <Loader2 size={10} className="animate-spin" /> : <PlugZap size={10} />}
+                  Connect
+                </button>
               )}
-              title={`Open ${nb.path} — the agent works on this notebook in this session`}
-            >
-              <NotebookPen size={11} />
-              <span className="max-w-[180px] truncate">{nb.filename}</span>
-            </button>
-          ))}
-          <button
-            onClick={() => setShowFiles(!showFiles)}
-            className={cn(
-              "flex items-center gap-1 rounded-input px-2 py-1 text-xs ring-1 ring-border hover:bg-surface-2",
-              showFiles ? "bg-surface-2 text-text" : "bg-surface text-muted",
-            )}
-            title={`Browse this session's folder beside the chat${workspace ? ` — ${workspace}` : ""}`}
-            aria-pressed={showFiles}
-          >
-            <FolderOpen size={12} />
-            {/* An open session's folder is a fact — the toggle names it, replacing
-                a separate folder chip (one element for "this session's files"). */}
-            <span className="max-w-[160px] truncate">
-              {sessionId && workspace ? baseName(workspace) : "Files"}
-            </span>
-          </button>
-          {!connected && (
-            <button
-              onClick={connect}
-              disabled={connecting}
-              className="flex items-center gap-1.5 rounded-input bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
-            >
-              {connecting ? <Loader2 size={13} className="animate-spin" /> : <PlugZap size={13} />}
-              Connect
-            </button>
-          )}
-        </div>
-
-        <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-[940px] flex-col gap-5 px-8 py-6">
+            </div>
+          </div>
+          <div className="mx-auto flex max-w-[880px] flex-col px-6 py-6">
+            {/* JumpBar — floating navigation for long conversations */}
+            {thread && <JumpBar blocks={thread.blocks} />}
             {/* Deliberate workspace switches don't render anything at all (they're
                 masked as connected); a genuine boot/reconnect shows only the
                 header badge's pulsing dot — anything appearing and disappearing
@@ -295,10 +309,22 @@ export function LiveSessionPage() {
               </div>
             )}
           </div>
+          {/* Scroll-to-bottom FAB */}
+          {showScrollBtn && (
+            <button
+              onClick={scrollToBottom}
+              className="sticky bottom-4 left-full mr-6 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface shadow-pop transition-opacity hover:bg-surface-2"
+              title="Scroll to bottom"
+            >
+              <ArrowDown size={15} className="text-muted" />
+            </button>
+          )}
         </div>
 
-        <div className="px-8 pb-5 pt-2">
-          <div className="mx-auto max-w-[940px] space-y-3">
+        <div className="relative px-6 pb-4 pt-2">
+          {/* Gradient fade from chat to composer area */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-bg to-transparent" />
+          <div className="mx-auto max-w-[880px] space-y-3">
             {activeRequest && (
               <InteractionPrompt
                 question={activeQuestion}
@@ -315,6 +341,7 @@ export function LiveSessionPage() {
               onRunShell={(c) => void onRunShell(c)}
               onRunCommand={(n, a) => void onRunCommand(n, a)}
               commands={commands}
+              fileSuggestions={fileSuggestions}
               disabled={!connected || working}
               working={running}
               onStop={() => void interrupt()}
@@ -353,8 +380,8 @@ export function LiveSessionPage() {
             </div>
           )}
           {!activeArtifact && showFiles && (
-            <div ref={paneRef as React.RefObject<HTMLDivElement>} className="hidden shrink-0 border-l border-border bg-surface lg:block" style={{ width: 480, contentVisibility: paneDragging ? "hidden" : undefined }}>
-              <SessionFilesPane key={paneKey} onClose={() => setShowFiles(false)} />
+            <div ref={paneRef as React.RefObject<HTMLDivElement>} className="hidden shrink-0 lg:block" style={{ width: 480, contentVisibility: paneDragging ? "hidden" : undefined }}>
+              <ContextPanel onClose={() => setShowFiles(false)} />
             </div>
           )}
         </>
@@ -390,23 +417,5 @@ function ThreadSkeleton() {
         <div className="h-3.5 w-3/5 rounded bg-surface-2" />
       </div>
     </div>
-  );
-}
-
-function ConnBadge({ status }: { status: string }) {
-  const tone = status === "ready" ? "text-ok" : status === "error" ? "text-error" : "text-muted";
-  return (
-    <span className={cn("flex items-center gap-1.5 text-xs", tone)} title={`Agent · ${status}`}>
-      <span
-        className={cn(
-          "h-1.5 w-1.5 rounded-full",
-          status === "ready" ? "bg-ok" : status === "error" ? "bg-error" : "bg-muted",
-          status === "connecting" && "animate-pulse",
-        )}
-      />
-      {/* Ready is the norm — a green dot says it all (hover for detail). Text
-          appears only for states that need attention. */}
-      {status !== "ready" && <>Agent · {status}</>}
-    </span>
   );
 }

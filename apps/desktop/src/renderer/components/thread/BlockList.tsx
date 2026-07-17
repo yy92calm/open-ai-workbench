@@ -53,55 +53,78 @@ function prepareItems(blocks: ThreadBlock[]): RenderItem[] {
   return items;
 }
 
-export function renderBlock(block: ThreadBlock, i: number, handlers?: BlockHandlers) {
+/** Spacing rhythm: different block transitions need different visual gaps. */
+function spacingBefore(kind: ThreadBlock["kind"]): string {
+  switch (kind) {
+    case "user":
+      return "mt-5";
+    case "agent":
+      return "mt-4";
+    case "tool-call":
+    case "step-summary":
+      return "mt-1.5";
+    case "reasoning":
+      return "mt-3";
+    case "turn-divider":
+      return "mt-2";
+    default:
+      return "mt-2";
+  }
+}
+
+export function renderBlock(block: ThreadBlock, i: number, handlers?: BlockHandlers, prevKind?: ThreadBlock["kind"]) {
+  const sp = spacingBefore(block.kind);
   switch (block.kind) {
     case "turn-divider":
       return <TurnDivider key={i} block={block} />;
     case "user":
       return (
-        <UserMessage
-          key={i}
-          block={block}
-          onEdit={handlers?.onUserMessageEdit}
-        />
+        <div key={i} id={`block-${i}`} className={prevKind ? sp : ""}>
+          <UserMessage
+            block={block}
+            onEdit={handlers?.onUserMessageEdit}
+          />
+        </div>
       );
     case "agent":
       return (
-        <AgentMessage
-          key={i}
-          markdown={block.markdown}
-          timestamp={block.timestamp}
-          onOpenArtifact={handlers?.onArtifactOpen}
-        />
+        <div key={i} className={prevKind ? sp : ""}>
+          <AgentMessage
+            markdown={block.markdown}
+            timestamp={block.timestamp}
+            onOpenArtifact={handlers?.onArtifactOpen}
+          />
+        </div>
       );
     case "reasoning":
-      return <ReasoningCard key={i} block={block} />;
+      return <div key={i} className={prevKind ? sp : ""}><ReasoningCard block={block} /></div>;
     case "step-summary":
-      return <StepSummaryRow key={i} block={block} />;
+      return <div key={i} className={prevKind ? sp : ""}><StepSummaryRow block={block} /></div>;
     case "tool-call":
       // Shell commands get their own card
       if (block.shellCommand) {
-        return <ShellCard key={i} block={block} />;
+        return <div key={i} className={prevKind ? sp : ""}><ShellCard block={block} /></div>;
       }
       return (
-        <ToolCallRow
-          key={i}
-          block={block}
-          activity={
-            block.childSessionId ? handlers?.subagentActivity?.(block.childSessionId) : undefined
-          }
-        />
+        <div key={i} className={prevKind ? sp : ""}>
+          <ToolCallRow
+            block={block}
+            activity={
+              block.childSessionId ? handlers?.subagentActivity?.(block.childSessionId) : undefined
+            }
+          />
+        </div>
       );
     case "table":
-      return <DataTable key={i} block={block} />;
+      return <div key={i} className={prevKind ? sp : ""}><DataTable block={block} /></div>;
     case "figure":
-      return <FigureBlock key={i} block={block} onComment={handlers?.onFigureComment} />;
+      return <div key={i} className={prevKind ? sp : ""}><FigureBlock block={block} onComment={handlers?.onFigureComment} /></div>;
     case "artifact":
-      return <ArtifactCard key={i} block={block} onOpen={handlers?.onArtifactOpen} />;
+      return <div key={i} className={prevKind ? sp : ""}><ArtifactCard block={block} onOpen={handlers?.onArtifactOpen} /></div>;
     case "running-jobs":
-      return <RunningJobsOverlay key={i} block={block} />;
+      return <div key={i} className={prevKind ? sp : ""}><RunningJobsOverlay block={block} /></div>;
     case "status-line":
-      return <StatusLine key={i} block={block} />;
+      return <div key={i} className={prevKind ? sp : ""}><StatusLine block={block} /></div>;
   }
 }
 
@@ -116,12 +139,22 @@ export function BlockList({
 
   return (
     <>
-      {items.map((item) => {
+      {items.map((item, idx) => {
         if (item.type === "block") {
-          return renderBlock(item.block, item.key, handlers);
+          const prevKind = idx > 0
+            ? (items[idx - 1].type === "tool-group" ? "tool-call" as const : (items[idx - 1] as { type: "block"; block: ThreadBlock }).block.kind)
+            : undefined;
+          return renderBlock(item.block, item.key, handlers, prevKind);
         }
         // Tool group
-        return <ToolGroup key={item.key} blocks={item.blocks} handlers={handlers} />;
+        const prevKind = idx > 0
+          ? (items[idx - 1].type === "tool-group" ? "tool-call" as const : (items[idx - 1] as { type: "block"; block: ThreadBlock }).block.kind)
+          : undefined;
+        return (
+          <div key={item.key} className={prevKind ? spacingBefore("tool-call") : ""}>
+            <ToolGroup blocks={item.blocks} handlers={handlers} />
+          </div>
+        );
       })}
     </>
   );

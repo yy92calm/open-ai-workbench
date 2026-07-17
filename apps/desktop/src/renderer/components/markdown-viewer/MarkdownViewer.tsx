@@ -2,9 +2,21 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import hljs from "highlight.js";
-import { Play, Loader2 } from "lucide-react";
+import { Check, Clipboard, Play, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { kernelExecute, formatExecResult } from "@/lib/kernel";
+
+function useCopyCode(text: string) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch { /* ignore */ }
+  };
+  return { copied, onCopy };
+}
 
 type Variant = "chat" | "document";
 
@@ -14,7 +26,7 @@ const STYLES: Record<Variant, Record<string, string>> = {
     p: "my-2 first:mt-0 last:mb-0",
     a: "text-link underline underline-offset-2",
     code: "rounded bg-surface-2 px-1 py-0.5 font-mono text-[13px] text-link",
-    pre: "my-3 overflow-x-auto rounded-input bg-surface-2 p-3 font-mono text-[13px] leading-5 [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-text",
+    pre: "my-3 overflow-x-auto rounded-input border-l-2 border-accent/30 bg-elev-2 p-3 font-mono text-[13px] leading-5 [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-text",
     ul: "my-2 ml-5 list-disc space-y-1",
     ol: "my-2 ml-5 list-decimal space-y-1",
     h1: "mb-3 mt-5 text-2xl font-semibold first:mt-0",
@@ -58,6 +70,7 @@ function CodeBlock({
 }) {
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
+  const { copied, onCopy } = useCopyCode(code);
   const s = STYLES[variant];
 
   const highlighted = language
@@ -81,9 +94,18 @@ function CodeBlock({
 
   return (
     <div className="group relative">
-      <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-[11px] text-muted">
-        <span className="font-mono uppercase">{language || "text"}</span>
+      <div className="flex items-center gap-1.5 border-b border-border-soft px-3 py-1.5 text-[11px] text-muted">
+        <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono uppercase ring-1 ring-border/60">{language || "text"}</span>
         <div className="flex-1" />
+        {/* Copy button — always visible on hover */}
+        <button
+          onClick={onCopy}
+          className="hidden items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-surface hover:text-text group-hover:flex"
+          title="Copy code"
+        >
+          {copied ? <Check size={11} className="text-ok" /> : <Clipboard size={11} />}
+          {copied ? "Copied" : "Copy"}
+        </button>
         {variant === "chat" && (
           <button
             onClick={() => void run()}

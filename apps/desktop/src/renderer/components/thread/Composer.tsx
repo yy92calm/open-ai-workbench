@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
 import { ArrowUp, Paperclip, Square, Terminal, X } from "lucide-react";
 import { addFilesToWorkspace, addTextToWorkspace, isTauri } from "@/lib/tauri";
 import { useUiStore } from "@/lib/store";
@@ -58,6 +58,7 @@ export function Composer({
   onRunShell,
   onRunCommand,
   commands = [],
+  fileSuggestions = [],
   disabled,
   working,
   onStop,
@@ -67,6 +68,8 @@ export function Composer({
   onRunShell?: (command: string) => void;
   onRunCommand?: (name: string, args: string) => void;
   commands?: ComposerCommand[];
+  /** File paths available for @ mentions (from thread artifacts/tool-calls). */
+  fileSuggestions?: string[];
   disabled?: boolean;
   /** A turn is running: the send button becomes Stop (wired to `onStop`). */
   working?: boolean;
@@ -105,6 +108,22 @@ export function Composer({
   const paletteOpen = matches.length > 0 && !paletteClosed && !disabled;
   const selIndex = Math.min(sel, Math.max(matches.length - 1, 0));
 
+  // @ mention: detect "@" followed by text (not at start — that's slash commands)
+  const atMatch = value.match(/@(\S*)$/);
+  const atTyping = !command && !slashTyping && !!atMatch && atMatch.index !== undefined && atMatch.index > 0;
+  const atQuery = atTyping ? atMatch[1].toLowerCase() : "";
+  const fileMatches = atTyping && fileSuggestions.length > 0
+    ? fileSuggestions
+        .filter((f) => f.toLowerCase().includes(atQuery))
+        .sort(
+          (a, b) =>
+            Number(b.toLowerCase().startsWith(atQuery)) -
+            Number(a.toLowerCase().startsWith(atQuery)),
+        )
+        .slice(0, 8)
+    : [];
+  const atOpen = fileMatches.length > 0 && !disabled;
+
   // Each edit resets the palette: selection back to the top, Esc-close undone.
   useEffect(() => {
     setSel(0);
@@ -116,6 +135,15 @@ export function Composer({
   const pick = (c: ComposerCommand) => {
     setCommand(c.name);
     setValue("");
+    taRef.current?.focus();
+  };
+
+  // Pick a file @ mention: replaces the "@query" with "@filename "
+  const pickFile = (filePath: string) => {
+    if (!atMatch) return;
+    const before = value.slice(0, atMatch.index);
+    const fileName = filePath.split(/[\\/]/).pop() ?? filePath;
+    setValue(`${before}@${fileName} `);
     taRef.current?.focus();
   };
 
@@ -229,6 +257,28 @@ export function Composer({
         return;
       }
     }
+    // @ mention popup navigation
+    if (atOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        // Simple: just pick the first match on Enter, navigate not needed for now
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        // Remove the @ to close the popup
+        if (atMatch) {
+          const before = value.slice(0, atMatch.index);
+          setValue(before);
+        }
+        return;
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        pickFile(fileMatches[0]);
+        return;
+      }
+    }
     // Backspace on an empty input dissolves the command chip back into text.
     if (e.key === "Backspace" && command && value === "") {
       e.preventDefault();
@@ -331,6 +381,35 @@ export function Composer({
           <span className="font-medium">Agent is working…</span>
         </div>
       )}
+      {/* @ mention popup */}
+      {atOpen && (
+        <div
+          role="listbox"
+          aria-label="File mentions"
+          className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-48 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-card"
+        >
+          {fileMatches.map((f, i) => (
+            <button
+              key={f}
+              role="option"
+              aria-selected={i === 0}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left",
+                i === 0 ? "bg-surface-2" : "hover:bg-surface-2",
+              )}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pickFile(f);
+              }}
+            >
+              <span className="shrink-0 text-muted">
+                <Paperclip size={11} />
+              </span>
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-text">{f}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {paletteOpen && (
         <div
           role="listbox"
@@ -392,6 +471,19 @@ export function Composer({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+        onDrop={(e: DragEvent<HTMLTextAreaElement>) => {
+          if (!isTauri || !onSend) return;
+          const droppedFiles = e.dataTransfer.files;
+          if (droppedFiles.length > 0) {
+            e.preventDefault();
+            const names: string[] = [];
+            for (let i = 0; i < droppedFiles.length; i++) {
+              names.push(droppedFiles[i].name);
+            }
+            setFiles((f) => [...f, ...names]);
+          }
+        }}
         placeholder={
           command
             ? "Arguments (optional) — Enter to run"
@@ -405,7 +497,10 @@ export function Composer({
         )}
         aria-label="Ask anything"
       />
-      <div className="flex items-center gap-1.5 pt-1">
+      <div className={cn(
+        "flex items-center gap-1.5 pt-1",
+        (value || files.length > 0 || command || shellMode) && "border-t border-border-soft/60 mt-1 pt-2",
+      )}>
         {command ? (
           <span
             className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-accent/15 pl-2 pr-1 font-mono text-xs text-accent"
@@ -422,11 +517,11 @@ export function Composer({
           </span>
         ) : shellMode ? (
           <span
-            className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-warn/15 px-1.5 font-mono text-xs text-warn"
+            className="flex h-7 shrink-0 items-center gap-1.5 rounded-input bg-warn/15 px-2 font-mono text-xs text-warn ring-1 ring-warn/20"
             title="Runs directly in the session's workspace folder"
           >
-            <Terminal size={13} />
-            shell
+            <Terminal size={12} />
+            <span className="font-medium">shell</span>
           </span>
         ) : (
           canAttach && (
@@ -455,10 +550,11 @@ export function Composer({
           </button>
         ) : (
           <button
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg hover:opacity-90 disabled:opacity-40"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg transition-transform hover:scale-105 hover:opacity-90 disabled:opacity-40"
             aria-label="Send"
             onClick={submit}
             disabled={!canSend}
+            title={!canSend ? "Type a message or add files to send" : "Send message"}
           >
             <ArrowUp size={15} />
           </button>
