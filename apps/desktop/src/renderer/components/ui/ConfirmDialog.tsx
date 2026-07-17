@@ -27,7 +27,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/30"
       onClick={onCancel}
       role="presentation"
     >
@@ -44,7 +44,7 @@ export function ConfirmDialog({
             className="rounded-input border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2"
             onClick={onCancel}
           >
-            Cancel
+取消
           </button>
           <button
             className="rounded-input bg-error px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"

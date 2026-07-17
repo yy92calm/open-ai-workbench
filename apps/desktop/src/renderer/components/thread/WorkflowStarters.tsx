@@ -14,8 +14,8 @@ export const WORKFLOW_STARTERS: WorkflowStarter[] = [
   {
     id: "analyze",
     icon: <LineChart size={17} strokeWidth={1.75} />,
-    title: "Analyze my data",
-    description: "Point the agent at a file you added; get figures and a report back.",
+    title: "分析我的数据",
+    description: "让 Agent 分析你添加的文件，生成图表和报告。",
     prompt:
       "Analyze the data file I added to the workspace end to end: explore it, run the analysis in code, " +
       "save at least one figure as a PNG, and write report.md with the findings — every number traced to " +
@@ -24,8 +24,8 @@ export const WORKFLOW_STARTERS: WorkflowStarter[] = [
   {
     id: "build",
     icon: <Terminal size={17} strokeWidth={1.75} />,
-    title: "Build a script or tool",
-    description: "Describe what you need; the agent writes, runs, and iterates on the code.",
+    title: "构建脚本或工具",
+    description: "描述你的需求，Agent 编写、运行并迭代代码。",
     prompt:
       "Help me build a small tool: ask what I need, then write the code, run it to verify it works, " +
       "and iterate until it does what I described. Keep all files in the workspace.",
@@ -33,8 +33,8 @@ export const WORKFLOW_STARTERS: WorkflowStarter[] = [
   {
     id: "explain",
     icon: <FileSearch size={17} strokeWidth={1.75} />,
-    title: "Explain a file",
-    description: "Walk through a file in the workspace and summarize what it does.",
+    title: "解释文件",
+    description: "逐段解读工作区中的文件，总结其功能。",
     prompt:
       "Pick a file in the workspace and explain what it does, step by step. Ask me which file to " +
       "explain if there is more than one candidate.",
@@ -56,13 +56,13 @@ export function WorkflowStarters({ onPick }: { onPick: (prompt: string) => void 
           {/* Brand logo */}
           <img src={logo} alt="" className="mx-auto h-[36px] w-auto opacity-80" />
           <div className="mt-4 text-[10.5px] font-medium uppercase tracking-[0.2em] text-muted">
-            New session
+            新会话
           </div>
           <h2 className="mt-2.5 font-serif text-[26px] leading-tight text-text">
-            What should we work on?
+            今天想做什么？
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Describe your task below — or start from one of these.
+            在下方描述你的任务 — 或从以下模板开始。
           </p>
         </div>
 
@@ -93,9 +93,9 @@ export function WorkflowStarters({ onPick }: { onPick: (prompt: string) => void 
         {/* Keyboard shortcut hint */}
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-fg-faint">
           <Command size={11} />
-          <span>Press</span>
+          <span>按</span>
           <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[10px]">/</kbd>
-          <span>to search commands</span>
+          <span>搜索命令</span>
         </div>
       </div>
     </div>

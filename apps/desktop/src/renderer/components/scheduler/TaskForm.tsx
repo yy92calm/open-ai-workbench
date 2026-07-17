@@ -90,7 +90,7 @@ export function TaskForm({ task, agents, onSave, onUpdate, onCancel }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/30"
       onClick={onCancel}
       role="presentation"
     >

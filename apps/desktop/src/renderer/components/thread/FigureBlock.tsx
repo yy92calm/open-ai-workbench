@@ -48,7 +48,7 @@ export function FigureBlock({
         <span className="text-sm font-medium text-text">{block.title}</span>
         <button
           className="ml-auto text-muted hover:text-text"
-          aria-label="Download figure"
+          aria-label="下载图片"
           onClick={() => void saveTextWithFeedback(`${block.title}.svg`, imageToText(block.src), "image/svg+xml")}
         >
           <Download size={15} />
@@ -63,7 +63,7 @@ export function FigureBlock({
           onClick={onImageClick}
           role="button"
           tabIndex={0}
-          aria-label="Add annotation"
+          aria-label="添加标注"
         >
           <img src={block.src} alt={block.title} className="mx-auto block max-w-full" />
         </div>
@@ -82,7 +82,7 @@ export function FigureBlock({
             <Popover.Portal>
               <Popover.Content
                 sideOffset={8}
-                className="z-50 max-w-[260px] rounded-card border border-border bg-surface px-3 py-2 text-sm text-text shadow-pop"
+                className="z-dropdown max-w-[260px] rounded-card border border-border bg-surface px-3 py-2 text-sm text-text shadow-pop"
               >
                 {a.note}
                 <Popover.Arrow className="fill-[var(--surface)]" />
@@ -93,7 +93,7 @@ export function FigureBlock({
 
         {draft && (
           <div
-            className="absolute z-50 -translate-x-1/2 translate-y-2"
+            className="absolute z-dropdown -translate-x-1/2 translate-y-2"
             style={{ left: `${draft.x}%`, top: `${draft.y}%` }}
           >
             <div className="flex items-center gap-2 rounded-card border border-border bg-surface px-3 py-2 shadow-pop">
@@ -108,9 +108,9 @@ export function FigureBlock({
                   if (e.key === "Enter") send();
                   if (e.key === "Escape") setDraft(null);
                 }}
-                placeholder="Add a note…"
+                placeholder="添加备注…"
                 className="w-44 bg-transparent text-sm text-text outline-none placeholder:text-muted"
-                aria-label="Annotation note"
+                aria-label="标注备注"
               />
               <button
                 className="rounded-input bg-text px-3 py-1 text-xs font-medium text-bg disabled:opacity-40"

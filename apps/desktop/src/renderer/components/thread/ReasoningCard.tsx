@@ -47,7 +47,7 @@ export function ReasoningCard({ block }: { block: ReasoningBlock }) {
           </span>
           {isStreaming && (
             <span className="shrink-0 text-[11px] text-purple-400/60 font-mono">
-              thinking
+              思考中
             </span>
           )}
           <ChevronRight

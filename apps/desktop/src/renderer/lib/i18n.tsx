@@ -5,10 +5,10 @@ export type Locale = "en" | "zh-CN";
 const LOCALE_KEY = "workbench.locale";
 
 export function loadLocale(): Locale {
-  if (typeof window === "undefined") return "en";
+  if (typeof window === "undefined") return "zh-CN";
   const saved = window.localStorage.getItem(LOCALE_KEY);
   if (saved === "en" || saved === "zh-CN") return saved;
-  return "en";
+  return "zh-CN";
 }
 
 export function persistLocale(locale: Locale) {

@@ -33,8 +33,10 @@ export {
 } from "./types";
 
 // Agent runtime abstraction layer (transport-neutral surface the UI targets).
-// Re-exports the agent-runtime subpackage so consumers that already import
-// from "@workbench/sdk" can opt in without changing their import path.
+// Only types are re-exported here so the renderer can depend on the contract
+// without pulling in the Node-only claude-code adapter (which depends on
+// @anthropic-ai/claude-agent-sdk). The factory (createAgentRuntime) lives in
+// "@workbench/sdk/agent-runtime", imported only by the Electron main process.
 export {
   type AgentRuntime,
   type AgentRuntimeEvent,
@@ -50,5 +52,4 @@ export {
   type AgentMcpConfig,
   type AgentMcpServer,
   type PermissionMode,
-  createAgentRuntime,
 } from "./agent-runtime";

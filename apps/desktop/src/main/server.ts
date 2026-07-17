@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { accessSync, cpSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { accessSync, cpSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { get as httpGet } from "node:http";
 import { createServer } from "node:net";
 import { homedir } from "node:os";
@@ -92,6 +92,39 @@ function sidecarBinaryPath(): string {
     return join(process.resourcesPath, "binaries", binaryName);
   }
   return join(app.getAppPath(), "binaries", binaryName);
+}
+
+/** Clear the OpenCode SQLite database when the bundled sidecar binary changes.
+ *  OpenCode's DB schema is version-specific; a binary upgrade against a stale
+ *  DB causes "no such table" errors that make /event return 500. */
+function migrateStaleDatabase(sidecarPath: string, dataHome: string): void {
+  const markerPath = join(runtimeRoot(), "sidecar-fingerprint.txt");
+  let fingerprint = "";
+  try {
+    const st = statSync(sidecarPath);
+    fingerprint = `${st.size}:${Math.floor(st.mtimeMs)}`;
+  } catch {
+    return; // can't stat - let the normal "not found" path handle it
+  }
+  let stored = "";
+  try {
+    stored = readFileSync(markerPath, "utf-8").trim();
+  } catch { /* no marker yet */ }
+  if (stored === fingerprint) return; // same binary, DB is compatible
+  // Binary changed (or first run) - clear stale DB files so OpenCode recreates
+  // them with the correct schema.
+  const dbDir = join(dataHome, "opencode");
+  if (existsSync(dbDir)) {
+    for (const f of ["opencode.db", "opencode.db-shm", "opencode.db-wal"]) {
+      const p = join(dbDir, f);
+      if (existsSync(p)) {
+        rmSync(p, { force: true });
+        log("db", "migrate", `deleted stale ${f}`);
+      }
+    }
+  }
+  writeFileSync(markerPath, fingerprint);
+  log("db", "migrate", `sidecar fingerprint updated: ${fingerprint}`);
 }
 
 export function deployBundledProfile(): void {
@@ -201,6 +234,9 @@ export async function startSidecar(): Promise<string> {
   };
 
   const sidecarPath = sidecarBinaryPath();
+
+  // Clear stale DB if the bundled sidecar binary changed since last run.
+  migrateStaleDatabase(sidecarPath, data);
 
   if (!existsSync(sidecarPath)) {
     const msg = `sidecar binary not found: ${sidecarPath}`;

@@ -1,12 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { CalendarClock, Files, FolderTree, Plus, Search, Settings, Trash2, X } from "lucide-react";
+import { CalendarClock, Files, FolderTree, PanelLeftClose, PanelLeft, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import type { Project } from "@workbench/shared";
 import { cn } from "@/lib/cn";
 import { isDesktop } from "@/lib/electron";
 import { useRuntimeStore } from "@/lib/runtime";
 import { useI18n } from "@/lib/i18n";
-import { StatusPills } from "./StatusPills";
+import { useUiStore } from "@/lib/store";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import logo from "@/assets/logo.webp";
 
@@ -22,6 +22,8 @@ export function Sidebar({ project }: { project: Project }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { sessions, hiddenExamples, startDraft, deleteSession, hideExample } = useRuntimeStore();
+  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
   const startNew = () => {
     startDraft();
@@ -83,11 +85,11 @@ export function Sidebar({ project }: { project: Project }) {
       <div className="mt-3 flex-1 overflow-y-auto px-2 pb-2">
         <div className="mb-1.5 border-b border-border-soft/60 pb-1">
           <div className="flex items-center gap-1 px-2">
-            <span className="flex-1 text-[10px] font-medium uppercase tracking-wider text-muted">{t("sidebar.history")}</span>
+            <span className="flex-1 text-xs font-medium uppercase tracking-wider text-muted">{t("sidebar.history")}</span>
             <button
               onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchQuery(""); }}
               className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
-              aria-label="Search sessions"
+              aria-label="搜索会话"
             >
               {searchOpen ? <X size={11} /> : <Search size={11} />}
             </button>
@@ -97,14 +99,14 @@ export function Sidebar({ project }: { project: Project }) {
               ref={searchRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter sessions..."
-              className="mt-1 w-full rounded-input border border-border-soft bg-bg px-2 py-1 text-[11px] text-text outline-none placeholder:text-muted focus:border-accent/40"
+              placeholder="筛选会话…"
+              className="mt-1 w-full rounded-input border border-border-soft bg-bg px-2 py-1 text-sm text-text outline-none placeholder:text-muted focus:border-accent/40"
             />
           )}
         </div>
         {filteredRows.length === 0 && (
-          <div className="px-2 py-2 text-xs text-muted">
-            {searchQuery ? "No matches" : t("sidebar.noConversations")}
+          <div className="px-2 py-2 text-sm text-muted">
+            {searchQuery ? "无匹配" : t("sidebar.noConversations")}
           </div>
         )}
         {filteredRows.map((row) => (
@@ -112,7 +114,7 @@ export function Sidebar({ project }: { project: Project }) {
             <NavLink
               to={row.to}
               className={cn(
-                "relative flex items-center gap-1.5 rounded-input py-0.5 pl-2.5 pr-7 text-[12px] transition-colors duration-150 hover:bg-surface-2",
+                "relative flex items-center gap-1.5 rounded-input py-0.5 pl-2.5 pr-7 text-sm transition-colors duration-150 hover:bg-surface-2",
                 location.pathname === row.to ? "bg-surface-2 text-text" : "text-text/90",
               )}
             >
@@ -128,14 +130,14 @@ export function Sidebar({ project }: { project: Project }) {
               />
               <span className="flex-1 truncate">{row.title}</span>
               {row.kind === "example" && (
-                <span className="shrink-0 rounded-full bg-surface-2 px-1.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
+                <span className="shrink-0 rounded-full bg-surface-2 px-1.5 text-[11px] uppercase tracking-wide text-muted ring-1 ring-border">
                   {t("sidebar.example")}
                 </span>
               )}
             </NavLink>
             <button
               onClick={() => setPendingDelete(row)}
-              aria-label={`Delete ${row.title}`}
+              aria-label={`删除 ${row.title}`}
               className="absolute right-1.5 top-1/2 hidden -translate-y-1/2 rounded p-1 text-muted hover:bg-border hover:text-error group-hover:block"
             >
               <Trash2 size={13} />
@@ -145,15 +147,25 @@ export function Sidebar({ project }: { project: Project }) {
       </div>
 
       <div className="border-t border-border-soft/60 px-2 py-2">
-        <StatusPills />
-        <button
-          className="mt-1.5 flex items-center gap-1.5 rounded-input px-2 py-0.5 text-[12px] text-muted hover:bg-surface-2 hover:text-text"
-          onClick={() => navigate("/settings")}
-          aria-label="Settings"
-        >
-          <Settings size={13} />
-          <span>{t("sidebar.settings")}</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className="flex items-center gap-1.5 rounded-input px-2 py-0.5 text-sm text-muted hover:bg-surface-2 hover:text-text"
+            onClick={() => navigate("/settings")}
+            aria-label="设置"
+          >
+            <Settings size={13} />
+            <span>{t("sidebar.settings")}</span>
+          </button>
+          <span className="flex-1" />
+          <button
+            onClick={toggleSidebar}
+            className="rounded-input p-1.5 text-muted hover:bg-surface-2 hover:text-text"
+            aria-label={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+            title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+          >
+            {sidebarCollapsed ? <PanelLeft size={14} /> : <PanelLeftClose size={14} />}
+          </button>
+        </div>
       </div>
 
       {pendingDelete && (
@@ -177,7 +189,7 @@ function NavRow({ icon, label, onClick }: { icon: React.ReactNode; label: string
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-input px-2 py-0.5 text-[12px] text-text hover:bg-surface-2"
+      className="flex items-center gap-1.5 rounded-input px-2 py-0.5 text-sm text-text hover:bg-surface-2"
     >
       <span className="text-muted">{icon}</span>
       <span>{label}</span>

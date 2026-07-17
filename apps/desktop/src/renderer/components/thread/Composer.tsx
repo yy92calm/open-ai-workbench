@@ -62,7 +62,7 @@ export function Composer({
   disabled,
   working,
   onStop,
-  placeholder = "Ask anything",
+  placeholder = "有什么想问的？",
 }: {
   onSend?: (text: string) => void;
   onRunShell?: (command: string) => void;
@@ -378,15 +378,15 @@ export function Composer({
       {working && (
         <div className="flex items-center gap-2 border-b border-border-soft px-3.5 py-1.5 text-[12px] text-accent">
           <span className="h-[6px] w-[6px] shrink-0 animate-pulse rounded-full bg-accent" />
-          <span className="font-medium">Agent is working…</span>
+          <span className="font-medium">Agent 工作中…</span>
         </div>
       )}
       {/* @ mention popup */}
       {atOpen && (
         <div
           role="listbox"
-          aria-label="File mentions"
-          className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-48 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-card"
+          aria-label="文件引用"
+          className="absolute bottom-full left-0 right-0 z-dropdown mb-2 max-h-48 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-card"
         >
           {fileMatches.map((f, i) => (
             <button
@@ -413,8 +413,8 @@ export function Composer({
       {paletteOpen && (
         <div
           role="listbox"
-          aria-label="Commands"
-          className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-card"
+          aria-label="命令列表"
+          className="absolute bottom-full left-0 right-0 z-dropdown mb-2 max-h-64 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-card"
         >
           {matches.map((c, i) => (
             <button
@@ -455,7 +455,7 @@ export function Composer({
               <span className="max-w-[220px] truncate">{name}</span>
               <button
                 className="rounded p-0.5 text-muted hover:bg-border hover:text-text"
-                aria-label={`Remove ${name}`}
+                aria-label={`移除 ${name}`}
                 onClick={() => setFiles((f) => f.filter((n) => n !== name))}
               >
                 <X size={11} />
@@ -486,16 +486,16 @@ export function Composer({
         }}
         placeholder={
           command
-            ? "Arguments (optional) — Enter to run"
+            ? "参数（可选）— Enter 运行"
             : shellMode
-              ? "Run a shell command in the workspace folder"
+              ? "在工作区目录中运行 Shell 命令"
               : placeholder
         }
         className={cn(
           "max-h-[160px] w-full resize-none bg-transparent px-1.5 py-0.5 text-sm leading-6 text-text outline-none placeholder:text-muted",
           (shellMode || command) && "font-mono",
         )}
-        aria-label="Ask anything"
+        aria-label="有什么想问的？"
       />
       <div className={cn(
         "flex items-center gap-1.5 pt-1",
@@ -504,12 +504,12 @@ export function Composer({
         {command ? (
           <span
             className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-accent/15 pl-2 pr-1 font-mono text-xs text-accent"
-            title="Runs this command — type arguments, or press Backspace to edit the name"
+            title="运行此命令 — 输入参数，或按 Backspace 编辑名称"
           >
             /{command}
             <button
               className="rounded p-0.5 hover:bg-accent/20"
-              aria-label="Remove command"
+              aria-label="移除命令"
               onClick={unchip}
             >
               <X size={11} />
@@ -518,7 +518,7 @@ export function Composer({
         ) : shellMode ? (
           <span
             className="flex h-7 shrink-0 items-center gap-1.5 rounded-input bg-warn/15 px-2 font-mono text-xs text-warn ring-1 ring-warn/20"
-            title="Runs directly in the session's workspace folder"
+            title="直接在会话工作区目录中执行"
           >
             <Terminal size={12} />
             <span className="font-medium">shell</span>
@@ -527,8 +527,8 @@ export function Composer({
           canAttach && (
             <button
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input text-muted hover:bg-surface-2 hover:text-text disabled:opacity-40"
-              aria-label="Add files"
-              title="Add local files to the workspace"
+              aria-label="添加文件"
+              title="添加本地文件到工作区"
               onClick={() => void addFiles()}
               disabled={adding}
             >
@@ -542,8 +542,8 @@ export function Composer({
           // while the agent works — always live, even though the input is not.
           <button
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg hover:opacity-90"
-            aria-label="Stop"
-            title="Interrupt this turn (Esc)"
+            aria-label="停止"
+            title="中断本轮对话（Esc）"
             onClick={onStop}
           >
             <Square size={11} fill="currentColor" />
@@ -551,10 +551,10 @@ export function Composer({
         ) : (
           <button
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg transition-transform hover:scale-105 hover:opacity-90 disabled:opacity-40"
-            aria-label="Send"
+            aria-label="发送"
             onClick={submit}
             disabled={!canSend}
-            title={!canSend ? "Type a message or add files to send" : "Send message"}
+            title={!canSend ? "输入消息或添加文件后发送" : "发送消息"}
           >
             <ArrowUp size={15} />
           </button>

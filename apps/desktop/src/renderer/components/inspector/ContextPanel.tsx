@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { Files, Wrench, Brain, Shield, X } from "lucide-react";
+import { Wrench, Brain, Shield, Sigma, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useRuntimeStore } from "@/lib/runtime";
-import { SessionFilesPane } from "@/app/routes/FilesPage";
+import { TokenUsage } from "./TokenUsage";
 
-type Tab = "files" | "tools" | "memory" | "rules";
+type Tab = "tools" | "tokens" | "memory" | "rules";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "files", label: "Files", icon: <Files size={13} /> },
-  { id: "tools", label: "Tools", icon: <Wrench size={13} /> },
-  { id: "memory", label: "Memory", icon: <Brain size={13} /> },
-  { id: "rules", label: "Rules", icon: <Shield size={13} /> },
+  { id: "tools", label: "工具", icon: <Wrench size={13} /> },
+  { id: "tokens", label: "Token", icon: <Sigma size={13} /> },
+  { id: "memory", label: "记忆", icon: <Brain size={13} /> },
+  { id: "rules", label: "规则", icon: <Shield size={13} /> },
 ];
 
 /**
@@ -18,7 +18,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
  * Shown when no artifact is actively being previewed.
  */
 export function ContextPanel({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>("files");
+  const [tab, setTab] = useState<Tab>("tokens");
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -51,10 +51,10 @@ export function ContextPanel({ onClose }: { onClose: () => void }) {
 
       {/* Tab content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "files" && <SessionFilesPane onClose={onClose} />}
         {tab === "tools" && <ToolsTab />}
-        {tab === "memory" && <PlaceholderTab title="Memory" description="Conversation memory will appear here." />}
-        {tab === "rules" && <PlaceholderTab title="Rules" description="Project rules and guidelines will appear here." />}
+        {tab === "tokens" && <TokenUsage />}
+        {tab === "memory" && <PlaceholderTab title="记忆" description="会话记忆将在此处显示。" />}
+        {tab === "rules" && <PlaceholderTab title="规则" description="项目规则和指南将在此处显示。" />}
       </div>
     </div>
   );
@@ -70,7 +70,7 @@ function ToolsTab() {
       {mcpServers.length > 0 && (
         <div>
           <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
-            MCP Servers
+            MCP 服务
           </div>
           <div className="space-y-1">
             {mcpServers.map((s) => (
@@ -89,10 +89,10 @@ function ToolsTab() {
       {/* Detected tools */}
       <div>
         <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
-          Runtime Tools
+          运行时工具
         </div>
         {tools.length === 0 ? (
-          <div className="text-muted">No tools detected yet.</div>
+          <div className="text-muted">暂未检测到工具。</div>
         ) : (
           <div className="space-y-1">
             {tools.map((t) => (

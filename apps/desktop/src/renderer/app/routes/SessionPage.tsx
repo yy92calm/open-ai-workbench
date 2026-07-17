@@ -12,7 +12,7 @@ export function SessionPage() {
   const setInspectorOpen = useUiStore((s) => s.setInspectorOpen);
 
   if (!session) {
-    return <EmptyState title="Session not found" hint="Pick a session from the sidebar." />;
+    return <EmptyState title="未找到会话" hint="从侧边栏选择一个会话。" />;
   }
 
   const showInspector = inspectorOpen && !!session.inspector;

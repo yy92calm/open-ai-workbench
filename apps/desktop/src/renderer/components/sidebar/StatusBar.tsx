@@ -23,10 +23,10 @@ export function StatusBar() {
   const runtime = useRuntimeStore((s) => s.status);
   const defaultModel = useRuntimeStore((s) => s.defaultModel);
   const model: ModelStatus = defaultModel ? "connected" : "disconnected";
-  const modelName = defaultModel ? defaultModel.split("/").pop()! : "not set";
+  const modelName = defaultModel ? defaultModel.split("/").pop()! : "未设置";
 
   return (
-    <div className="flex h-7 shrink-0 items-center border-t border-border bg-surface px-3 text-[11px] text-muted">
+    <div className="flex h-7 shrink-0 items-center border-t border-border bg-surface px-3 text-[12px] text-muted">
       {/* Left: runtime status */}
       <div className="flex items-center gap-1.5">
         <span
@@ -55,7 +55,7 @@ export function StatusBar() {
       <div className="flex-1" />
 
       {/* Far right: workspace hint (empty for now, can be extended) */}
-      <span className="text-fg-faint">Workbench</span>
+      <span className="text-fg-faint">工作台</span>
     </div>
   );
 }

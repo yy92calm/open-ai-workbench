@@ -1,5 +1,5 @@
 import { ipcMain, dialog, BrowserWindow } from "electron";
-import { createAgentRuntime, type AgentRuntime, type AgentRuntimeEvent } from "@workbench/sdk";
+import { createAgentRuntime, type AgentRuntime, type AgentRuntimeEvent } from "@workbench/sdk/agent-runtime";
 import { CHANNEL, APP_NAMES, APP_IDS } from "./constants";
 import { getStore, removeStoreFile } from "./store";
 import { getLogger, exportDebugLogs } from "./logging";

@@ -1,0 +1,152 @@
+import { useMemo } from "react";
+import { DRAFT_KEY, useRuntimeStore } from "@/lib/runtime";
+import { cn } from "@/lib/cn";
+
+interface TokenEstimate {
+  label: string;
+  chars: number;
+  tokens: number;
+  color: string;
+}
+
+/**
+ * Rough token estimation: ~4 chars per token for mixed content.
+ * Used for relative sizing, not exact billing.
+ */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+function countBlocks(blocks: import("@workbench/shared").ThreadBlock[]): TokenEstimate[] {
+  let userChars = 0;
+  let agentChars = 0;
+  let toolInputChars = 0;
+  let toolOutputChars = 0;
+  let reasoningChars = 0;
+
+  for (const b of blocks) {
+    switch (b.kind) {
+      case "user":
+        userChars += b.text.length;
+        break;
+      case "agent":
+        agentChars += b.markdown.length;
+        break;
+      case "reasoning":
+        reasoningChars += b.text.length;
+        break;
+      case "tool-call": {
+        toolInputChars += b.inputSummary?.length ?? 0;
+        toolOutputChars += b.outputSummary?.length ?? 0;
+        break;
+      }
+    }
+  }
+
+  return [
+{ label: "用户", chars: userChars, tokens: estimateTokens(userChars), color: "var(--accent)" },
+  { label: "Agent", chars: agentChars, tokens: estimateTokens(agentChars), color: "var(--ok)" },
+  { label: "工具输入", chars: toolInputChars, tokens: estimateTokens(toolInputChars), color: "var(--link)" },
+  { label: "工具输出", chars: toolOutputChars, tokens: estimateTokens(toolOutputChars), color: "var(--warn)" },
+  { label: "推理", chars: reasoningChars, tokens: estimateTokens(reasoningChars), color: "var(--accent-strong)" },
+  ];
+}
+
+/** Context window capacity in tokens (conservative estimate for most models). */
+const CONTEXT_WINDOW = 128_000;
+const WARNING_AT = 0.7;
+const DANGER_AT = 0.9;
+
+function Ring({ pct }: { pct: number }) {
+  const r = 36;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - Math.min(pct, 1));
+  const tone = pct >= DANGER_AT ? "var(--error)" : pct >= WARNING_AT ? "var(--warn)" : "var(--ok)";
+
+  return (
+    <svg width="96" height="96" viewBox="0 0 96 96" className="shrink-0">
+      <circle cx="48" cy="48" r={r} fill="none" stroke="var(--border)" strokeWidth="6" />
+      <circle
+        cx="48" cy="48" r={r}
+        fill="none"
+        stroke={tone}
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        transform="rotate(-90 48 48)"
+        style={{ transition: "stroke-dashoffset 0.4s ease, stroke 0.3s ease" }}
+      />
+      <text x="48" y="48" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--text)">
+        {(pct * 100).toFixed(0)}%
+      </text>
+    </svg>
+  );
+}
+
+/**
+ * Token usage estimation panel — shows per-category token counts and a
+ * context window ring. Inspired by Reasonix's context-window-ring.
+ */
+export function TokenUsage() {
+  const currentId = useRuntimeStore((s) => s.currentId);
+  const threads = useRuntimeStore((s) => s.threads);
+  const thread = currentId ? threads[currentId] : threads[DRAFT_KEY];
+
+  const estimates = useMemo(() => countBlocks(thread?.blocks ?? []), [thread]);
+  const totalTokens = estimates.reduce((s, e) => s + e.tokens, 0);
+  const totalChars = estimates.reduce((s, e) => s + e.chars, 0);
+  const pct = Math.min(totalTokens / CONTEXT_WINDOW, 1);
+  const tone = pct >= DANGER_AT ? "text-error" : pct >= WARNING_AT ? "text-warn" : "text-ok";
+
+  return (
+    <div className="flex flex-col items-center gap-4 p-4">
+      {/* Ring */}
+      <div className="flex flex-col items-center gap-1">
+        <Ring pct={pct} />
+        <span className={cn("text-[11px] font-medium", tone)}>
+          {pct >= DANGER_AT ? "接近上限" : pct >= WARNING_AT ? "即将占满" : "充足"}
+        </span>
+      </div>
+
+      {/* Total */}
+      <div className="w-full text-center">
+        <div className="text-[18px] font-semibold text-text">{totalTokens.toLocaleString()}</div>
+        <div className="text-[11px] text-muted">预估 Token 数</div>
+        <div className="text-[11px] text-muted">
+          上下文窗口上限 {CONTEXT_WINDOW.toLocaleString()}
+        </div>
+      </div>
+
+      {/* Breakdown */}
+      <div className="w-full space-y-1.5">
+        {estimates
+          .filter((e) => e.tokens > 0)
+          .sort((a, b) => b.tokens - a.tokens)
+          .map((e) => {
+            const pctOfTotal = totalTokens > 0 ? (e.tokens / totalTokens) * 100 : 0;
+            return (
+              <div key={e.label}>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-text">{e.label}</span>
+                  <span className="text-muted">{e.tokens.toLocaleString()} tok</span>
+                </div>
+                <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${pctOfTotal}%`, background: e.color }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+      </div>
+
+      {totalChars === 0 && (
+        <div className="py-8 text-center text-[12px] text-muted">
+          暂无消息。开始对话后将显示 Token 用量。
+        </div>
+      )}
+    </div>
+  );
+}

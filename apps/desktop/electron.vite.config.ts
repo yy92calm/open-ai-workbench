@@ -9,7 +9,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin({ exclude: ["@workbench/sdk", "@workbench/shared"] })],
     build: {
       rollupOptions: {
-        external: ["electron-store", "electron-log", "electron-updater", "electron-context-menu", "electron-window-state"],
+        external: ["electron-store", "electron-log", "electron-updater", "electron-context-menu", "electron-window-state", "@anthropic-ai/claude-agent-sdk"],
       },
     },
   },

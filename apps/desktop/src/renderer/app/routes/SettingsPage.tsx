@@ -164,6 +164,7 @@ export function SettingsPage() {
           <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
             {([
               { value: "en", label: "English" },
+              { value: "zh-CN", label: "中文" },
               { value: "zh-CN", label: "简体中文" },
             ] as const).map((lang) => (
               <button

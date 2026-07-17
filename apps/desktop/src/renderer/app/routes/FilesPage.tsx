@@ -228,9 +228,9 @@ export function SessionFilesPane({ onClose }: { onClose: () => void }) {
         <span className="truncate text-sm font-medium text-text" title={workspace ?? undefined}>
           {baseName(workspace)}
         </span>
-        <span className="text-xs text-muted">this session's folder</span>
+        <span className="text-xs text-muted">当前会话文件夹</span>
         <div className="flex-1" />
-        <button className="text-muted hover:text-text" aria-label="Close files" onClick={onClose}>
+        <button className="text-muted hover:text-text" aria-label="关闭文件" onClick={onClose}>
           <X size={16} />
         </button>
       </div>

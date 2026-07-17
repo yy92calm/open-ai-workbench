@@ -58,35 +58,35 @@ export function CommandPalette() {
   };
 
   const actions: Action[] = [
-    { id: "new", label: "New session", icon: <Plus size={16} />, run: () => { useRuntimeStore.getState().startDraft(); navigate("/live"); close(); } },
-    { id: "analyze", label: "Analyze my data (new workflow)", icon: <FileSearch size={16} />, run: () => void runWorkflow("analyze") },
-    { id: "review", label: "Audit a report (traceability review)", icon: <ShieldCheck size={16} />, run: () => void runWorkflow("audit") },
-    { id: "notebooks", label: "Open notebooks", icon: <NotebookPen size={16} />, run: () => { navigate("/notebooks"); close(); } },
-    { id: "skills", label: "Manage skills", icon: <PackagePlus size={16} />, run: () => { navigate("/skills"); close(); } },
-    { id: "settings", label: "Open settings", icon: <Settings size={16} />, run: () => { navigate("/settings"); close(); } },
-    { id: "theme", label: "Toggle light / dark theme", icon: <Moon size={16} />, run: () => { toggleTheme(); close(); } },
+    { id: "new", label: "新建会话", icon: <Plus size={16} />, run: () => { useRuntimeStore.getState().startDraft(); navigate("/live"); close(); } },
+    { id: "analyze", label: "数据分析（新工作流）", icon: <FileSearch size={16} />, run: () => void runWorkflow("analyze") },
+    { id: "review", label: "报告审核（可追溯审查）", icon: <ShieldCheck size={16} />, run: () => void runWorkflow("audit") },
+    { id: "notebooks", label: "打开笔记本", icon: <NotebookPen size={16} />, run: () => { navigate("/notebooks"); close(); } },
+    { id: "skills", label: "管理技能", icon: <PackagePlus size={16} />, run: () => { navigate("/skills"); close(); } },
+    { id: "settings", label: "打开设置", icon: <Settings size={16} />, run: () => { navigate("/settings"); close(); } },
+    { id: "theme", label: "切换浅色/深色主题", icon: <Moon size={16} />, run: () => { toggleTheme(); close(); } },
   ];
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-[16vh]"
+      className="fixed inset-0 z-palette flex items-start justify-center bg-black/20 pt-[16vh]"
       onClick={close}
     >
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg">
         <Command
-          label="Command palette"
+          label="命令面板"
           className="overflow-hidden rounded-card border border-border bg-surface shadow-pop"
         >
           <Command.Input
             autoFocus
-            placeholder="Type a command…"
+            placeholder="输入命令…"
             className="w-full border-b border-border bg-transparent px-4 py-3 text-sm text-text outline-none placeholder:text-muted"
           />
           <Command.List className="max-h-80 overflow-y-auto p-2">
             <Command.Empty className="px-3 py-6 text-center text-sm text-muted">
-              No results.
+              无结果。
             </Command.Empty>
             {actions.map((a) => (
               <Command.Item

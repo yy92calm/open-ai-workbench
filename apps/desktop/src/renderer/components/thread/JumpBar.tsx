@@ -37,7 +37,7 @@ export function JumpBar({ blocks }: { blocks: ThreadBlock[] }) {
   };
 
   return (
-    <div className="sticky right-0 top-1/3 z-20 ml-auto flex w-6 shrink-0 flex-col items-center gap-1.5">
+    <div className="sticky right-0 top-1/3 z-sticky ml-auto flex w-6 shrink-0 flex-col items-center gap-1.5">
       {points.map((point, i) => (
         <div
           key={point.index}

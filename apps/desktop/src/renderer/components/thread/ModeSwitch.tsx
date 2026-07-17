@@ -3,8 +3,8 @@ import type { PermissionMode } from "@workbench/sdk";
 import { cn } from "@/lib/cn";
 
 const MODES: { value: PermissionMode; label: string; icon: React.ReactNode }[] = [
-  { value: "review", label: "Review", icon: <ShieldAlert size={12} /> },
-  { value: "auto", label: "Auto", icon: <Shield size={12} /> },
+  { value: "review", label: "审核", icon: <ShieldAlert size={12} /> },
+  { value: "auto", label: "自动", icon: <Shield size={12} /> },
   { value: "yolo", label: "YOLO", icon: <Zap size={12} /> },
 ];
 

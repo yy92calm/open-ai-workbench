@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronRight, X } from "lucide-react";
-import type { ArtifactBlock, FigureAnnotation, ThreadBlock } from "@workbench/shared";
+import { BookOpen, Check, ChevronRight, Code, Cpu, GitBranch, Terminal, X } from "lucide-react";
+import type { ArtifactBlock, FigureAnnotation, ThreadBlock, ToolCallBlock } from "@workbench/shared";
 import { cn } from "@/lib/cn";
 import { AgentMessage, DataTable, RunningJobsOverlay, StatusLine, UserMessage } from "./atoms";
 import { ToolCallRow } from "./ToolCallRow";
@@ -160,6 +160,23 @@ export function BlockList({
   );
 }
 
+/** Tool categories and their identifying tool name patterns. */
+const TOOL_CATEGORIES = [
+  { id: "explore", label: "Explore", icon: <BookOpen size={13} />, color: "text-link", tools: ["read", "ls", "grep", "glob", "web_fetch", "search"] },
+  { id: "modify", label: "Modify", icon: <Code size={13} />, color: "text-ok", tools: ["write", "edit", "move", "delete", "rename"] },
+  { id: "delegate", label: "Delegate", icon: <GitBranch size={13} />, color: "text-accent", tools: ["task", "run_skill", "explore", "research", "review"] },
+  { id: "shell", label: "Shell", icon: <Terminal size={13} />, color: "text-warn", tools: ["bash", "shell", "terminal"] },
+  { id: "other", label: "Tools", icon: <Cpu size={13} />, color: "text-muted", tools: [] },
+] as const;
+
+function categoryOf(title: string): typeof TOOL_CATEGORIES[number] {
+  const lower = title.toLowerCase();
+  for (const cat of TOOL_CATEGORIES) {
+    if (cat.tools.some((t) => lower.startsWith(t) || lower.includes(t))) return cat;
+  }
+  return TOOL_CATEGORIES[TOOL_CATEGORIES.length - 1];
+}
+
 function ToolGroup({
   blocks,
   handlers,
@@ -168,11 +185,24 @@ function ToolGroup({
   handlers?: BlockHandlers;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const count = blocks.length;
-  const done = blocks.filter((b) => b.kind === "tool-call" && (b.status === "success" || b.status === "failed" || b.status === "warning")).length;
-  const failed = blocks.filter((b) => b.kind === "tool-call" && b.status === "failed").length;
+  const toolBlocks = blocks.filter((b): b is ToolCallBlock => b.kind === "tool-call");
+  const count = toolBlocks.length;
+  const done = toolBlocks.filter((b) => b.status === "success" || b.status === "failed" || b.status === "warning").length;
+  const failed = toolBlocks.filter((b) => b.status === "failed").length;
   const allDone = done === count;
-  const hasFailed = failed > 0;
+
+  // Categorize by most common category
+  const cats = toolBlocks.map((b) => categoryOf(b.title));
+  const primaryCat = cats.sort((a, b) => cats.filter((c) => c === a).length - cats.filter((c) => c === b).length).pop() ?? TOOL_CATEGORIES[TOOL_CATEGORIES.length - 1];
+  const catCounts = new Map<string, number>();
+  for (const c of cats) {
+    catCounts.set(c.id, (catCounts.get(c.id) ?? 0) + 1);
+  }
+  const summary = [...catCounts.entries()]
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, n]) => `${n} ${TOOL_CATEGORIES.find((c) => c.id === id)?.label ?? id}`)
+    .join(", ");
 
   return (
     <div className="rounded-lg border border-border-soft bg-surface/40">
@@ -183,20 +213,18 @@ function ToolGroup({
         aria-expanded={expanded}
       >
         <ChevronRight
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 transition-transform duration-150",
-            expanded && "rotate-90",
-          )}
+          className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-150", expanded && "rotate-90")}
         />
-        {allDone && !hasFailed && <Check size={13} className="shrink-0 text-ok" />}
-        {hasFailed && <X size={13} className="shrink-0 text-error" />}
-        <span className={cn("flex-1", allDone ? "text-text-dim" : "text-muted")}>
-          {done}/{count} 工具调用
+        <span className={cn("flex shrink-0 items-center", primaryCat.color)}>{primaryCat.icon}</span>
+        {allDone && !failed && <Check size={13} className="shrink-0 text-ok" />}
+        {failed > 0 && <X size={13} className="shrink-0 text-error" />}
+        <span className={cn("flex-1 truncate", allDone ? "text-text-dim" : "text-muted")}>
+          {summary || `${count} tools`}
         </span>
       </button>
       {expanded && (
         <div className="flex flex-col gap-1.5 border-t border-border-soft px-2 py-2">
-          {blocks.map((b, i) => renderBlock(b, i, handlers))}
+          {toolBlocks.map((b, i) => renderBlock(b, i, handlers))}
         </div>
       )}
     </div>

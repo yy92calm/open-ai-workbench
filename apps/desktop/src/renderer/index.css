@@ -10,7 +10,26 @@
 @tailwind components;
 @tailwind utilities;
 
-:root,
+:root {
+  /* ── Motion tokens ── */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 340ms;
+  --dur-slower: 420ms;
+  --ease-out: cubic-bezier(0.2, 0.72, 0.2, 1);
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  /* ── Z-index tokens ── */
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-palette: 600;
+  --z-onboarding: 9999;
+}
+
 [data-theme="light"] {
   --bg: #f7f5ef;
   --bg-soft: #f2efe7;
@@ -97,6 +116,10 @@ body,
   height: 100%;
 }
 
+html {
+  font-size: 17px;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -139,4 +162,75 @@ body {
 @keyframes gradient-shimmer {
   0% { background-position: 0% 0%; }
   100% { background-position: 0% 200%; }
+}
+
+/* Decision surface: composer stays mounted but visually hidden */
+.composer-decision-hidden {
+  visibility: hidden;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+
+/* ── Layout grid ── */
+.layout-container {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: var(--sidebar-width) 4px minmax(0, 1fr);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+  transition: grid-template-columns var(--dur-base) var(--ease-out);
+}
+
+.layout-container.layout--resizing {
+  transition: none;
+}
+
+.layout-container.layout--sidebar-collapsed {
+  --sidebar-width: 0px;
+}
+
+.sidebar-panel {
+  grid-row: 1;
+  grid-column: 1;
+  overflow: hidden;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.sidebar-panel--collapsed {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar-resizer {
+  grid-row: 1;
+  grid-column: 2;
+  cursor: col-resize;
+  transition: background-color var(--dur-fast) ease;
+}
+
+.sidebar-resizer:hover {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.sidebar-resizer:active {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.chat-pane {
+  grid-row: 1;
+  grid-column: 3;
+  min-width: 0;
+}
+
+.layout-status-bar {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+
+/* ── Topicbar ── */
+.topicbar {
+  -webkit-app-region: no-drag;
 }

@@ -1,20 +1,16 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FolderOpen, Loader2, NotebookPen, PlugZap, RefreshCw, ArrowDown } from "lucide-react";
+import { FolderOpen, Loader2, NotebookPen, PlugZap, ArrowDown } from "lucide-react";
 import { DRAFT_KEY, rootSessionOf, subagentActivity, useRuntimeStore } from "@/lib/runtime";
-import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
 import { JumpBar } from "@/components/thread/JumpBar";
-import { Composer } from "@/components/thread/Composer";
-import { ModeSwitch } from "@/components/thread/ModeSwitch";
+import { DecisionSurface } from "@/components/thread/DecisionSurface";
+import { Topicbar } from "@/components/thread/Topicbar";
 import { baseName } from "@/components/thread/WorkspaceChip";
 import { WorkflowStarters } from "@/components/thread/WorkflowStarters";
-import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
-import { InspectorShell } from "@/components/inspector/InspectorShell";
-import { ContextPanel } from "@/components/inspector/ContextPanel";
+import { WorkbenchDock } from "@/components/inspector/WorkbenchDock";
 import { cn } from "@/lib/cn";
-import { useResizable } from "@/lib/useResizable";
 import { useUiStore } from "@/lib/store";
 
 /** Live agent session. `/live` (no id) is a blank draft;
@@ -171,15 +167,6 @@ export function LiveSessionPage() {
   const activeArtifact = pane?.artifact ?? null;
   const showFiles = !activeArtifact && !!pane?.showFiles;
 
-  // Right pane resizable — reverse: dragging left grows the panel.
-  // No React state during drag (DOM-only), so the preview never re-renders.
-  // isDragging hides heavy pane content (iframes, code viewers) during the
-  // drag so the browser skips their layout — no more jank.
-  const { targetRef: paneRef, handleProps: paneHandle, isDragging: paneDragging } = useResizable(480, 320, Infinity, true);
-  // Refresh key: incrementing forces the pane to re-mount (reload content).
-  const [paneKey, setPaneKey] = useState(0);
-  const refreshPane = useCallback(() => setPaneKey((k) => k + 1), []);
-
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
   const onChatScroll = useScrollMemory(chatRef, `chat:${currentId ?? DRAFT_KEY}`, !historyLoading);
@@ -212,9 +199,21 @@ export function LiveSessionPage() {
   return (
     <div className="flex h-full min-w-0">
       <div className="flex h-full min-w-0 flex-1 flex-col">
+        <Topicbar
+          title={title}
+          rightPanelOpen={!!(activeArtifact || showFiles)}
+          onToggleRightPanel={() => {
+            if (activeArtifact || showFiles) {
+              if (activeArtifact) closeArtifact();
+              else setShowFiles(false);
+            } else {
+              setShowFiles(true);
+            }
+          }}
+        />
         <div ref={chatRef} onScroll={onChatScrollWithBtn} className="relative flex-1 overflow-y-auto">
           {/* Minimal floating toolbar at top-right for Files/Notebook */}
-          <div className="sticky top-2 z-10 flex justify-end px-4">
+          <div className="sticky top-2 z-sticky flex justify-end px-4">
             <div className="flex items-center gap-1.5 rounded-full border border-border-soft/60 bg-surface/80 px-2 py-1 shadow-card backdrop-blur-sm">
               {uniqueNotebooks.map((nb) => (
                 <button
@@ -236,12 +235,12 @@ export function LiveSessionPage() {
                   "flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors",
                   showFiles ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text",
                 )}
-                title={`Browse this session's folder${workspace ? ` — ${workspace}` : ""}`}
+                title={`浏览此会话的文件夹${workspace ? ` — ${workspace}` : ""}`}
                 aria-pressed={showFiles}
               >
                 <FolderOpen size={10} />
                 <span className="max-w-[100px] truncate">
-                  {sessionId && workspace ? baseName(workspace) : "Files"}
+                  {sessionId && workspace ? baseName(workspace) : "文件"}
                 </span>
               </button>
               {!connected && (
@@ -251,7 +250,7 @@ export function LiveSessionPage() {
                   className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
                 >
                   {connecting ? <Loader2 size={10} className="animate-spin" /> : <PlugZap size={10} />}
-                  Connect
+连接
                 </button>
               )}
             </div>
@@ -266,10 +265,10 @@ export function LiveSessionPage() {
                 real error/offline states. */}
             {!connected && !connecting && (
               <div className="rounded-card border border-border bg-surface p-5 shadow-card">
-                <div className="text-sm font-medium text-text">Agent runtime</div>
+                <div className="text-sm font-medium text-text">Agent 运行时</div>
                 <p className="mt-1 text-sm text-muted">
-                  The desktop app runs a bundled agent runtime automatically. In the browser, start one with{" "}
-                  <span className="font-mono">agent serve</span> and connect.
+                  桌面应用会自动运行内置的 Agent 运行时。在浏览器中，请先运行{" "}
+                  <span className="font-mono">agent serve</span> 然后连接。
                 </p>
                 <div className="mt-3 rounded-input bg-surface-2 px-3 py-2 font-mono text-xs text-text">
                   {serverUrl}
@@ -296,10 +295,10 @@ export function LiveSessionPage() {
                 </span>
                 <span className="shrink-0 text-[13px]">
                   {activeRequest
-                    ? "Paused — the agent needs your answer below"
+                    ? "已暂停 — 请在下方回答 Agent 的问题"
                     : sending && !currentId
-                      ? "Starting the session…"
-                      : "Working"}
+                      ? "正在启动会话…"
+                      : "工作中"}
                 </span>
                 {!activeRequest && currentTool && (
                   <span className="truncate rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-text-dim" title={currentTool.title}>
@@ -314,7 +313,7 @@ export function LiveSessionPage() {
             <button
               onClick={scrollToBottom}
               className="sticky bottom-4 left-full mr-6 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface shadow-pop transition-opacity hover:bg-surface-2"
-              title="Scroll to bottom"
+              title="滚动到底部"
             >
               <ArrowDown size={15} className="text-muted" />
             </button>
@@ -325,67 +324,38 @@ export function LiveSessionPage() {
           {/* Gradient fade from chat to composer area */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-bg to-transparent" />
           <div className="mx-auto max-w-[880px] space-y-3">
-            {activeRequest && (
-              <InteractionPrompt
-                question={activeQuestion}
-                permission={activeQuestion ? undefined : activePermission}
-                origin={requestOrigin}
-                onAnswer={(id, answers) => void answerQuestion(id, answers)}
-                onReject={(id) => void rejectQuestion(id)}
-                onPermission={(id, reply) => void replyPermission(id, reply)}
-              />
-            )}
-            <ModeSwitch mode={permissionMode} onChange={(m) => void setPermissionMode(m)} />
-            <Composer
-              onSend={onSend}
-              onRunShell={(c) => void onRunShell(c)}
-              onRunCommand={(n, a) => void onRunCommand(n, a)}
-              commands={commands}
-              fileSuggestions={fileSuggestions}
-              disabled={!connected || working}
-              working={running}
-              onStop={() => void interrupt()}
-              placeholder={
-                working ? "Waiting for the reply…" : connected ? "Ask anything" : "Connect to chat"
-              }
+            <DecisionSurface
+              question={activeQuestion}
+              permission={activeQuestion ? undefined : activePermission}
+              origin={requestOrigin}
+              permissionMode={permissionMode}
+              onAnswer={(id, answers) => void answerQuestion(id, answers)}
+              onReject={(id) => void rejectQuestion(id)}
+              onPermission={(id, reply) => void replyPermission(id, reply)}
+              onPermissionModeChange={(m) => void setPermissionMode(m)}
+              composer={{
+                onSend,
+                onRunShell: (c) => void onRunShell(c),
+                onRunCommand: (n, a) => void onRunCommand(n, a),
+                commands,
+                fileSuggestions,
+                disabled: !connected || working,
+                working: running,
+                onStop: () => void interrupt(),
+                placeholder: working ? "等待回复…" : connected ? "有什么想问的？" : "连接后开始聊天",
+              }}
             />
           </div>
         </div>
       </div>
 
-      {(activeArtifact || showFiles) && (
-        <>
-          {/* Drag handle to resize the right pane */}
-          <div
-            {...paneHandle}
-            className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
-          />
-          {activeArtifact && (
-            <div ref={paneRef as React.RefObject<HTMLDivElement>} className="hidden shrink-0 lg:block" style={{ width: 480, contentVisibility: paneDragging ? "hidden" : undefined }}>
-              <div className="relative h-full">
-                <button
-                  onClick={refreshPane}
-                  className="absolute right-2 top-2 z-10 rounded-input border border-border bg-surface p-1.5 text-muted hover:bg-surface-2 hover:text-text"
-                  title="刷新预览"
-                >
-                  <RefreshCw size={14} />
-                </button>
-                <InspectorShell
-                  key={paneKey}
-                  inspector={fileInspectorFromBlock(activeArtifact)}
-                  onClose={closeArtifact}
-                  onEvaluate={onEvaluate}
-                />
-              </div>
-            </div>
-          )}
-          {!activeArtifact && showFiles && (
-            <div ref={paneRef as React.RefObject<HTMLDivElement>} className="hidden shrink-0 lg:block" style={{ width: 480, contentVisibility: paneDragging ? "hidden" : undefined }}>
-              <ContextPanel onClose={() => setShowFiles(false)} />
-            </div>
-          )}
-        </>
-      )}
+      <WorkbenchDock
+        artifact={activeArtifact}
+        showFiles={showFiles}
+        onCloseArtifact={closeArtifact}
+        onCloseFiles={() => setShowFiles(false)}
+        onEvaluate={onEvaluate}
+      />
     </div>
   );
 }

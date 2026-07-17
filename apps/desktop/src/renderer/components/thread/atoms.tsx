@@ -55,7 +55,7 @@ export function UserMessage({ block, onEdit }: { block: UserMessageBlock; onEdit
           {onEdit && (
             <button
               className="rounded p-0.5 text-muted hover:text-text"
-              title="Edit and resend"
+              title="编辑并重新发送"
               onClick={() => onEdit(block.text)}
             >
               <Pencil size={11} />
@@ -63,7 +63,7 @@ export function UserMessage({ block, onEdit }: { block: UserMessageBlock; onEdit
           )}
           <button
             className="rounded p-0.5 text-muted hover:text-text"
-            title="Copy"
+            title="复制"
             onClick={onCopy}
           >
             {copied ? <Check size={11} className="text-ok" /> : <Copy size={11} />}
@@ -122,7 +122,7 @@ export function AgentMessage({
                 key={path}
                 onClick={() => onOpenArtifact?.(refToArtifactBlock(path))}
                 className="flex items-center gap-1.5 rounded-input border border-border bg-surface px-2 py-1 text-xs text-text transition-colors hover:bg-surface-2 hover:border-accent/30"
-                title={`Preview ${path}`}
+                title={`预览 ${path}`}
               >
                 <Paperclip size={12} className="text-accent" />
                 <span className="font-mono">{path.split(/[\\/]/).pop()}</span>
@@ -136,7 +136,7 @@ export function AgentMessage({
           )}
           <button
             className="rounded p-0.5 text-muted hover:text-text"
-            title="Copy response"
+            title="复制回复"
             onClick={onCopy}
           >
             {copied ? <Check size={11} className="text-ok" /> : <Copy size={11} />}
