@@ -8,10 +8,12 @@ function api(): ElectronAPI {
 
 export const isDesktop = true;
 
-/** Start the bundled OpenCode sidecar (desktop only). Returns its base URL. */
-export async function startRuntime(): Promise<string | null> {
+/** Start the bundled agent runtime (desktop only). Returns its base URL,
+ *  or null for claude-code (no sidecar). `kind` selects the engine:
+ *  "opencode" (default) or "claude-code". */
+export async function startRuntime(kind?: "opencode" | "claude-code"): Promise<string | null> {
   try {
-    return await api().startRuntime();
+    return await api().startRuntime(kind);
   } catch (err) {
     console.error("[startRuntime] failed:", err);
     return null;

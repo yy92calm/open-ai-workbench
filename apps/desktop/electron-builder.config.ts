@@ -15,7 +15,11 @@ const config: Configuration = {
     },
     {
       from: "../../app-config/.opencode",
-      to: "app-config",
+      to: "app-config/.opencode",
+    },
+    {
+      from: "../../app-config/.claude",
+      to: "app-config/.claude",
     },
     {
       from: "scripts",

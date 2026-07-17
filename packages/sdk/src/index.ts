@@ -31,3 +31,24 @@ export {
   type PermissionResolvedEvent,
   type PermissionReply,
 } from "./types";
+
+// Agent runtime abstraction layer (transport-neutral surface the UI targets).
+// Re-exports the agent-runtime subpackage so consumers that already import
+// from "@workbench/sdk" can opt in without changing their import path.
+export {
+  type AgentRuntime,
+  type AgentRuntimeEvent,
+  type AgentRuntimeConfig,
+  type AgentRuntimeKind,
+  type AgentSessionMeta,
+  type AgentSkillInfo,
+  type AgentCommandInfo,
+  type AgentHistoryMessage,
+  type AgentHistoryPart,
+  type AgentProviderInfo,
+  type AgentProviderModelInfo,
+  type AgentMcpConfig,
+  type AgentMcpServer,
+  type PermissionMode,
+  createAgentRuntime,
+} from "./agent-runtime";

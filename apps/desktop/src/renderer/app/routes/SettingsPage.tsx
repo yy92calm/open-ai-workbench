@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
-import { useUiStore } from "@/lib/store";
+import { useUiStore, type AgentRuntimeKind } from "@/lib/store";
 import { useRuntimeStore } from "@/lib/runtime";
 import { useI18n } from "@/lib/i18n";
 import { openWorkspaceBase, pickFolder, setWorkspaceBase, workspaceBase } from "@/lib/tauri";
@@ -19,6 +19,8 @@ export function SettingsPage() {
   const setTheme = useUiStore((s) => s.setTheme);
   const locale = useUiStore((s) => s.locale);
   const setLocale = useUiStore((s) => s.setLocale);
+  const agentRuntimeKind = useUiStore((s) => s.agentRuntimeKind);
+  const setAgentRuntimeKind = useUiStore((s) => s.setAgentRuntimeKind);
   const { status, serverUrl, setServerUrl, connect, disconnect, defaultModel, providers, loadProviders, setDefaultModel } = useRuntimeStore();
   const connected = status === "ready";
   const [wsPath, setWsPath] = useState<string | null>(null);
@@ -81,6 +83,35 @@ export function SettingsPage() {
               </>
             )}
           </div>
+        </Card>
+
+        {/* ---- Runtime engine ---- */}
+        <Card title={t("settings.runtimeKind")} hint={t("settings.runtimeKindHint")}>
+          <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
+            {([
+              { value: "opencode", label: "OpenCode" },
+              { value: "claude-code", label: "Claude Code" },
+            ] as const).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setAgentRuntimeKind(opt.value as AgentRuntimeKind)}
+                className={cn(
+                  "rounded-[5px] px-4 py-1.5 text-[13px] transition-colors",
+                  agentRuntimeKind === opt.value
+                    ? "bg-surface text-text shadow-card"
+                    : "text-muted hover:text-text",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {agentRuntimeKind === "claude-code" && (
+            <p className="mt-2.5 text-xs text-warn">
+              Claude Code requires <span className="font-mono">@anthropic-ai/claude-agent-sdk</span> and an
+              Anthropic API key. Reconnect after switching.
+            </p>
+          )}
         </Card>
 
         {/* ---- Workspace ---- */}

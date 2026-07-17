@@ -2,7 +2,7 @@ export interface ElectronAPI {
   channelName: () => Promise<string>;
   appIdentifier: () => Promise<string>;
 
-  startRuntime: () => Promise<string>;
+  startRuntime: (kind?: string) => Promise<string | null>;
   runtimePassword: () => Promise<string>;
   stopRuntime: () => Promise<void>;
   serverUrl: () => Promise<string | null>;

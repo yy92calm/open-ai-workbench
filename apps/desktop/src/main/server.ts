@@ -72,11 +72,18 @@ export function setBaseWorkspace(path: string): void {
 
 function bundledProfileSource(): string {
   if (app.isPackaged) {
-    return join(process.resourcesPath, "app-config");
+    return join(process.resourcesPath, "app-config", ".opencode");
   }
-  // app.getAppPath() → apps/desktop  in dev, so we need two levels up to
+  // app.getAppPath() -> apps/desktop  in dev, so we need two levels up to
   // reach the repo-root app-config/.opencode directory.
   return join(app.getAppPath(), "..", "..", "app-config", ".opencode");
+}
+
+function claudeProfileSource(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "app-config", ".claude");
+  }
+  return join(app.getAppPath(), "..", "..", "app-config", ".claude");
 }
 
 function sidecarBinaryPath(): string {
@@ -97,6 +104,43 @@ export function deployBundledProfile(): void {
   if (existsSync(target)) rmSync(target, { recursive: true, force: true });
   cpSync(source, target, { recursive: true });
   log("profile", "deploy", `deployed ${source} -> ${target}`);
+}
+
+/** Deploy the bundled .claude profile to the active workspace so Claude Code
+ *  picks up CLAUDE.md, settings.json, skills, and commands. */
+export function deployClaudeProfile(): void {
+  const source = claudeProfileSource();
+  const ws = workspaceDir();
+  const target = join(ws, ".claude");
+  if (!existsSync(source)) {
+    log("claude-profile", "deploy", `source not found: ${source}`, "warn");
+    return;
+  }
+  // Merge (not replace) so user-authored skills/commands survive a redeploy.
+  cpSync(source, target, { recursive: true });
+  log("claude-profile", "deploy", `deployed ${source} -> ${target}`);
+}
+
+export type AgentRuntimeKind = "opencode" | "claude-code";
+
+export interface StartRuntimeResult {
+  kind: AgentRuntimeKind;
+  /** OpenCode: the sidecar's base URL. Claude Code: null (no sidecar). */
+  url: string | null;
+}
+
+/** Start the agent runtime for the selected engine.
+ *  - opencode: spawn `opencode serve` sidecar, return its URL.
+ *  - claude-code: deploy the .claude profile, return null (no sidecar needed;
+ *    the ClaudeCodeAdapter runs in-process via the Agent SDK). */
+export async function startAgentRuntime(kind: AgentRuntimeKind): Promise<StartRuntimeResult> {
+  if (kind === "claude-code") {
+    deployClaudeProfile();
+    return { kind, url: null };
+  }
+  // Default: opencode
+  const url = await startSidecar();
+  return { kind: "opencode", url };
 }
 
 function freePort(): Promise<number> {

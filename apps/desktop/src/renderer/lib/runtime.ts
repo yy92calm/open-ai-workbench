@@ -2,6 +2,8 @@ import { create } from "zustand";
 import {
   OpenCodeClient,
   DEFAULT_OPENCODE_URL,
+  type AgentRuntime,
+  type AgentRuntimeKind,
   type AgentInfo,
   type CommandInfo,
   type HistoryMessage,
@@ -156,7 +158,7 @@ interface RuntimeState {
   hideExample: (id: string) => void;
 }
 
-let client: OpenCodeClient | null = null;
+let client: AgentRuntime | null = null;
 const emptyThread = (): Thread => ({ blocks: [], index: {}, consecutiveTools: 0, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
  *  session id once the session exists, so the page never visibly resets. */
@@ -360,7 +362,7 @@ async function performTurn(
 }
 
 /** The live agent client (Settings talks to the runtime's config API directly). */
-export function getClient(): OpenCodeClient | null {
+export function getClient(): AgentRuntime | null {
   return client;
 }
 
@@ -731,10 +733,13 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   bootstrap: async () => {
     void get().detectTools();
     if (!isTauri) return;
-    console.error("[bootstrap] starting bundled runtime");
-    void logDebug("bootstrap: starting bundled runtime");
+    // Read the user's runtime engine choice from the UI store.
+    const { useUiStore } = await import("./store");
+    const kind: AgentRuntimeKind = useUiStore.getState().agentRuntimeKind;
+    console.error(`[bootstrap] starting bundled runtime (${kind})`);
+    void logDebug(`bootstrap: starting bundled runtime (${kind})`);
     try {
-      const url = await startRuntime();
+      const url = await startRuntime(kind);
       console.error(`[bootstrap] runtime url = ${url}`);
       void logDebug(`bootstrap: runtime at ${url}`);
       if (url) {
@@ -743,6 +748,16 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         // to connect before bootstrap() completes.)
         if (typeof window !== "undefined") window.localStorage.setItem(URL_KEY, url);
         set({ serverUrl: url });
+      } else if (kind === "claude-code") {
+        // Claude Code has no HTTP sidecar; the adapter runs in-process via the
+        // Agent SDK (main process). Set a sentinel so connect() knows to use
+        // the claude-code path instead of HTTP.
+        set({ serverUrl: "", status: "offline" });
+        void logDebug("bootstrap: claude-code mode (no sidecar URL)");
+        // TODO: start claude-bridge HTTP server in main process and connect
+        // to it transparently. For now, show an informational message.
+        set({ error: "Claude Code runtime selected. Connect manually after configuring ANTHROPIC_API_KEY." });
+        return;
       } else {
         console.error("[bootstrap] startRuntime returned null");
         set({ error: "Failed to start the agent runtime." });

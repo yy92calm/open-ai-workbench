@@ -6,7 +6,7 @@ const api = {
   appIdentifier: () => ipcRenderer.invoke("app-identifier"),
 
   // Runtime (sidecar)
-  startRuntime: () => ipcRenderer.invoke("start-runtime"),
+  startRuntime: (kind?: string) => ipcRenderer.invoke("start-runtime", kind),
   runtimePassword: () => ipcRenderer.invoke("runtime-password"),
   stopRuntime: () => ipcRenderer.invoke("stop-runtime"),
   serverUrl: () => ipcRenderer.invoke("server-url"),

@@ -1,9 +1,9 @@
 import { ipcMain, dialog, BrowserWindow } from "electron";
-import { OpenCodeClient, type OpenCodeEvent } from "@workbench/sdk";
+import { createAgentRuntime, type AgentRuntime, type AgentRuntimeEvent } from "@workbench/sdk";
 import { CHANNEL, APP_NAMES, APP_IDS } from "./constants";
 import { getStore, removeStoreFile } from "./store";
 import { getLogger, exportDebugLogs } from "./logging";
-import { startSidecar, stopSidecar, getServerPassword, workspaceDir, baseWorkspaceDir, setActiveWorkspace, setBaseWorkspace, getServerUrl } from "./server";
+import { stopSidecar, getServerPassword, workspaceDir, baseWorkspaceDir, setActiveWorkspace, setBaseWorkspace, getServerUrl, startAgentRuntime, type AgentRuntimeKind } from "./server";
 import * as artifactFile from "./artifact_file";
 import * as kernel from "./kernel";
 import * as provenance from "./provenance";
@@ -21,53 +21,63 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("app-identifier", () => APP_IDS[CHANNEL]);
 
   // ---- Runtime (sidecar) ----
-  ipcMain.handle("start-runtime", async () => {
+  // `kind` selects the engine: "opencode" (default) spawns the opencode serve
+  // sidecar; "claude-code" deploys the .claude profile and runs the Agent SDK
+  // in-process (no sidecar URL). The renderer reads the user's choice from the
+  // UI store and passes it here.
+  ipcMain.handle("start-runtime", async (_e, kind?: AgentRuntimeKind) => {
+    const runtimeKind: AgentRuntimeKind = kind === "claude-code" ? "claude-code" : "opencode";
     try {
-      const url = await startSidecar();
-      log.info(`[server] sidecar started at ${url}`);
-      const password = getServerPassword();
-      const directory = workspaceDir();
-      const client = new OpenCodeClient({
-        baseUrl: url,
-        password: password,
-        directory: directory ?? undefined,
-      });
-      // The sidecar may need a moment to finish internal initialization
-      // (e.g. models.dev fetch). Retry the event-stream connection a few
-      // times before giving up.
-      let lastErr: unknown = null;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        try {
-          await client.connect();
-          lastErr = null;
-          break;
-        } catch (err) {
-          lastErr = err;
-          log.warn(`[server] client.connect attempt ${attempt + 1} failed: ${err instanceof Error ? err.message : String(err)}`);
-          if (attempt < 4) await new Promise((r) => setTimeout(r, 1000));
-        }
-      }
-      if (lastErr) throw lastErr;
-      cronEngine.setFireCallback(async (task) => {
-        const sessionId = await client.createSession();
-        // Wait for session.idle before returning — this ensures the execution
-        // record stays "running" until the agent actually finishes.
-        const idlePromise = new Promise<void>((resolve) => {
-          const unsubscribe = client.onEvent((event: OpenCodeEvent) => {
-            if (event.type === "session.idle" && event.sessionId === sessionId) {
-              unsubscribe();
-              resolve();
-            }
-          });
-          // Safety timeout: 10 minutes max
-          setTimeout(() => { unsubscribe(); resolve(); }, 10 * 60 * 1000);
+      const result = await startAgentRuntime(runtimeKind);
+      log.info(`[server] agent runtime started: ${result.kind} url=${result.url ?? "null"}`);
+
+      // For opencode: the cron engine needs a client connected to the sidecar.
+      // For claude-code: cron is opencode-only for now (no long-running sidecar
+      // to attach to); a future claude-code cron path would use a
+      // ClaudeCodeAdapter in the main process.
+      if (result.kind === "opencode" && result.url) {
+        const password = getServerPassword();
+        const directory = workspaceDir();
+        const client: AgentRuntime = await createAgentRuntime({
+          kind: "opencode",
+          baseUrl: result.url,
+          password: password,
+          directory: directory ?? undefined,
         });
-        await client.sendPrompt(sessionId, task.prompt);
-        await idlePromise;
-        return sessionId;
-      });
-      cronEngine.start();
-      return url;
+        // The sidecar may need a moment to finish internal initialization
+        // (e.g. models.dev fetch). Retry the event-stream connection a few
+        // times before giving up.
+        let lastErr: unknown = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            await client.connect();
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            log.warn(`[server] client.connect attempt ${attempt + 1} failed: ${err instanceof Error ? err.message : String(err)}`);
+            if (attempt < 4) await new Promise((r) => setTimeout(r, 1000));
+          }
+        }
+        if (lastErr) throw lastErr;
+        cronEngine.setFireCallback(async (task) => {
+          const sessionId = await client.createSession();
+          const idlePromise = new Promise<void>((resolve) => {
+            const unsubscribe = client.onEvent((event: AgentRuntimeEvent) => {
+              if (event.type === "session.idle" && event.sessionId === sessionId) {
+                unsubscribe();
+                resolve();
+              }
+            });
+            setTimeout(() => { unsubscribe(); resolve(); }, 10 * 60 * 1000);
+          });
+          await client.sendPrompt(sessionId, task.prompt);
+          await idlePromise;
+          return sessionId;
+        });
+        cronEngine.start();
+      }
+      return result.url;
     } catch (err) {
       log.error(`[server] start-runtime failed: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
