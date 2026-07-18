@@ -44,6 +44,7 @@ export function LiveSessionPage() {
     closeArtifact,
     setShowFiles,
     setBrowserUrl,
+    setShowTerminal,
     answerQuestion,
     rejectQuestion,
     replyPermission,
@@ -168,6 +169,7 @@ export function LiveSessionPage() {
   const activeArtifact = pane?.artifact ?? null;
   const showFiles = !activeArtifact && !!pane?.showFiles;
   const browserUrl = pane?.browserUrl ?? "";
+  const showTerminal = pane?.showTerminal ?? false;
 
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
@@ -222,17 +224,20 @@ export function LiveSessionPage() {
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <Topicbar
           title={title}
-          rightPanelOpen={!!(activeArtifact || showFiles || browserUrl)}
+          rightPanelOpen={!!(activeArtifact || showFiles || browserUrl || showTerminal)}
           showBrowser={!!browserUrl}
+          showTerminal={showTerminal}
           onToggleRightPanel={() => {
             if (activeArtifact) closeArtifact();
             else if (browserUrl) setBrowserUrl("");
+            else if (showTerminal) setShowTerminal(false);
             else setShowFiles(!showFiles);
           }}
           onToggleBrowser={() => {
             if (browserUrl) setBrowserUrl("");
             else setBrowserUrl("https://www.google.com");
           }}
+          onToggleTerminal={() => setShowTerminal(!showTerminal)}
         />
         <div ref={chatRef} onScroll={onChatScrollWithBtn} className="relative flex-1 overflow-y-auto">
           {/* Minimal floating toolbar at top-right for Files/Notebook */}
@@ -376,10 +381,12 @@ export function LiveSessionPage() {
         artifact={activeArtifact}
         showFiles={showFiles}
         browserUrl={browserUrl}
+        showTerminal={showTerminal}
         onCloseArtifact={closeArtifact}
         onCloseFiles={() => setShowFiles(false)}
         onBrowserUrlChange={setBrowserUrl}
         onCloseBrowser={() => setBrowserUrl("")}
+        onCloseTerminal={() => setShowTerminal(false)}
         onEvaluate={onEvaluate}
       />
     </div>

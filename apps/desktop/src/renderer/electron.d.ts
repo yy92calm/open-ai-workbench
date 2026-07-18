@@ -54,6 +54,11 @@ export interface ElectronAPI {
   checkForUpdates: (alertOnUpToDate?: boolean) => Promise<void>;
 
   openExternal: (url: string) => Promise<void>;
+
+  /** Listen for events from the main process (terminal data streaming). */
+  on: (channel: string, callback: (...args: unknown[]) => void) => () => void;
+  /** Generic invoke for terminal IPC. */
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
 }
 
 declare global {

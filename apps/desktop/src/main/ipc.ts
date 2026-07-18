@@ -12,6 +12,7 @@ import { detectShells, detectTools, enrichedPath } from "./shell_env";
 import { checkForUpdates } from "./updater";
 import { createMainWindow, getMainWindow } from "./windows";
 import { cronEngine, type CreateTaskInput, type UpdateTaskInput } from "./scheduler";
+import { registerTerminalHandlers } from "./terminal";
 
 export function registerIpcHandlers(): void {
   const log = getLogger();
@@ -230,4 +231,5 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("scheduler:history", (_e, taskId?: string, limit?: number) => cronEngine.getHistory(taskId, limit));
 
   log.info("IPC handlers registered");
+  registerTerminalHandlers();
 }

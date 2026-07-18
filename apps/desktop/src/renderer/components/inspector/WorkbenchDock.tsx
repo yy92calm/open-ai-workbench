@@ -5,6 +5,7 @@ import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
 import { ContextPanel } from "@/components/inspector/ContextPanel";
 import { BrowserPanel } from "@/components/inspector/BrowserPanel";
+import { TerminalPanel } from "@/components/inspector/TerminalPanel";
 import { useResizable } from "@/lib/useResizable";
 
 /**
@@ -15,25 +16,29 @@ export function WorkbenchDock({
   artifact,
   showFiles,
   browserUrl,
+  showTerminal,
   onCloseArtifact,
   onCloseFiles,
   onBrowserUrlChange,
   onCloseBrowser,
+  onCloseTerminal,
   onEvaluate,
 }: {
   artifact: ArtifactBlock | null;
   showFiles: boolean;
   browserUrl: string;
+  showTerminal: boolean;
   onCloseArtifact: () => void;
   onCloseFiles: () => void;
   onBrowserUrlChange: (url: string) => void;
   onCloseBrowser: () => void;
+  onCloseTerminal: () => void;
   onEvaluate?: (expr: string) => void;
 }) {
   const { targetRef, handleProps, isDragging } = useResizable(480, 320, Infinity, true);
   const [paneKey, setPaneKey] = useState(0);
   const refreshPane = useCallback(() => setPaneKey((k) => k + 1), []);
-  const open = !!(artifact || showFiles || browserUrl);
+  const open = !!(artifact || showFiles || browserUrl || showTerminal);
 
   if (!open) return null;
 
@@ -74,6 +79,9 @@ export function WorkbenchDock({
             onUrlChange={onBrowserUrlChange}
             onClose={onCloseBrowser}
           />
+        )}
+        {showTerminal && (
+          <TerminalPanel id="main" onClose={onCloseTerminal} />
         )}
       </div>
     </>

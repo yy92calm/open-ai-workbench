@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Globe, PanelRight } from "lucide-react";
+import { Globe, PanelRight, Terminal } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { DRAFT_KEY } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
@@ -20,14 +20,18 @@ export function Topicbar({
   title,
   onToggleRightPanel,
   onToggleBrowser,
+  onToggleTerminal,
   rightPanelOpen,
   showBrowser,
+  showTerminal,
 }: {
   title?: string;
   onToggleRightPanel?: () => void;
   onToggleBrowser?: () => void;
+  onToggleTerminal?: () => void;
   rightPanelOpen?: boolean;
   showBrowser?: boolean;
+  showTerminal?: boolean;
 }) {
   const status = useRuntimeStore((s) => s.status);
   const currentId = useRuntimeStore((s) => s.currentId);
@@ -60,6 +64,19 @@ export function Topicbar({
         {title || "新会话"}
       </h1>
       <div className="flex-1" />
+      {onToggleTerminal && (
+        <button
+          onClick={onToggleTerminal}
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-input transition-colors",
+            showTerminal ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
+          )}
+          aria-label="终端"
+          title="终端"
+        >
+          <Terminal size={14} />
+        </button>
+      )}
       {onToggleBrowser && (
         <button
           onClick={onToggleBrowser}
