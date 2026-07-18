@@ -10,17 +10,14 @@ import { FileBrowserPanel } from "@/components/inspector/FileBrowserPanel";
 import { useResizable } from "@/lib/useResizable";
 
 /**
- * Right-side dock: artifact preview, session context panel, or browser.
- * Mutually exclusive — only one shows at a time.
+ * Right-side dock: context, browser, terminal, files, or artifact preview.
+ * Tab bar is in the Topicbar; this component only renders the content.
  */
 export function WorkbenchDock({
   artifact,
-  showFiles,
   browserUrl,
-  showTerminal,
-  showFileBrowser,
+  tab,
   onCloseArtifact,
-  onCloseFiles,
   onBrowserUrlChange,
   onCloseBrowser,
   onCloseTerminal,
@@ -28,12 +25,9 @@ export function WorkbenchDock({
   onEvaluate,
 }: {
   artifact: ArtifactBlock | null;
-  showFiles: boolean;
   browserUrl: string;
-  showTerminal: boolean;
-  showFileBrowser: boolean;
+  tab: "context" | "browser" | "terminal" | "files";
   onCloseArtifact: () => void;
-  onCloseFiles: () => void;
   onBrowserUrlChange: (url: string) => void;
   onCloseBrowser: () => void;
   onCloseTerminal: () => void;
@@ -43,9 +37,7 @@ export function WorkbenchDock({
   const { targetRef, handleProps, isDragging } = useResizable(480, 320, Infinity, true);
   const [paneKey, setPaneKey] = useState(0);
   const refreshPane = useCallback(() => setPaneKey((k) => k + 1), []);
-  const open = !!(artifact || showFiles || browserUrl || showTerminal || showFileBrowser);
-
-  if (!open) return null;
+  const showArtifact = !!artifact;
 
   return (
     <>
@@ -53,12 +45,12 @@ export function WorkbenchDock({
         {...handleProps}
         className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
       />
-      <div
+<div
         ref={targetRef as React.RefObject<HTMLDivElement>}
         className="hidden shrink-0 lg:block"
         style={{ width: 480, contentVisibility: isDragging ? "hidden" : undefined }}
       >
-        {artifact && (
+        {showArtifact && (
           <div className="relative h-full">
             <button
               onClick={refreshPane}
@@ -69,26 +61,26 @@ export function WorkbenchDock({
             </button>
             <InspectorShell
               key={paneKey}
-              inspector={fileInspectorFromBlock(artifact)}
+              inspector={fileInspectorFromBlock(artifact!)}
               onClose={onCloseArtifact}
               onEvaluate={onEvaluate}
             />
           </div>
         )}
-        {!artifact && showFiles && (
-          <ContextPanel onClose={onCloseFiles} />
+        {!showArtifact && tab === "context" && (
+          <ContextPanel onClose={() => {}} />
         )}
-        {!artifact && !showFiles && browserUrl && (
+        {!showArtifact && tab === "browser" && (
           <BrowserPanel
             url={browserUrl}
             onUrlChange={onBrowserUrlChange}
             onClose={onCloseBrowser}
           />
         )}
-        {showTerminal && (
+        {!showArtifact && tab === "terminal" && (
           <TerminalPanel id="main" onClose={onCloseTerminal} />
         )}
-        {showFileBrowser && (
+        {!showArtifact && tab === "files" && (
           <FileBrowserPanel onClose={onCloseFileBrowser} />
         )}
       </div>

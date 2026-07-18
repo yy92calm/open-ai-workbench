@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FolderOpen, Globe, PanelRight, Terminal } from "lucide-react";
+import { BookOpen, FolderOpen, Globe, PanelRightClose, Terminal, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { DRAFT_KEY } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
@@ -12,30 +12,29 @@ const STATUS_TONE: Record<string, string> = {
   offline: "bg-muted",
 };
 
+const TABS = [
+  { id: "context" as const, label: "上下文", icon: <BookOpen size={14} /> },
+  { id: "browser" as const, label: "浏览器", icon: <Globe size={14} /> },
+  { id: "terminal" as const, label: "终端", icon: <Terminal size={14} /> },
+  { id: "files" as const, label: "文件", icon: <FolderOpen size={14} /> },
+];
+
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
 export function Topicbar({
   title,
-  onToggleRightPanel,
-  onToggleBrowser,
-  onToggleTerminal,
-  onToggleFileBrowser,
   rightPanelOpen,
-  showBrowser,
-  showTerminal,
-  showFileBrowser,
+  currentTab,
+  onTabChange,
+  onClosePanel,
 }: {
   title?: string;
-  onToggleRightPanel?: () => void;
-  onToggleBrowser?: () => void;
-  onToggleTerminal?: () => void;
-  onToggleFileBrowser?: () => void;
-  rightPanelOpen?: boolean;
-  showBrowser?: boolean;
-  showTerminal?: boolean;
-  showFileBrowser?: boolean;
+  rightPanelOpen: boolean;
+  currentTab: string;
+  onTabChange: (tab: "context" | "browser" | "terminal" | "files") => void;
+  onClosePanel: () => void;
 }) {
   const status = useRuntimeStore((s) => s.status);
   const currentId = useRuntimeStore((s) => s.currentId);
@@ -68,60 +67,36 @@ export function Topicbar({
         {title || "新会话"}
       </h1>
       <div className="flex-1" />
-      {onToggleTerminal && (
+      {/* Right sidebar tabs */}
+      <div className="flex items-center gap-0.5 rounded-input bg-surface-2 p-0.5">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onTabChange(t.id)}
+            className={cn(
+              "flex items-center gap-1 rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
+              rightPanelOpen && currentTab === t.id
+                ? "bg-surface text-text shadow-sm"
+                : "text-muted hover:text-text",
+            )}
+            title={t.label}
+          >
+            {t.icon}
+            <span className="hidden sm:inline">{t.label}</span>
+          </button>
+        ))}
+      </div>
+      {rightPanelOpen && (
         <button
-          onClick={onToggleTerminal}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-input transition-colors",
-            showTerminal ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
-          )}
-          aria-label="终端"
-          title="终端"
+          onClick={onClosePanel}
+          className="flex h-7 w-7 items-center justify-center rounded-input text-muted hover:bg-surface-2 hover:text-text"
+          title="关闭面板"
         >
-          <Terminal size={14} />
-        </button>
-      )}
-      {onToggleFileBrowser && (
-        <button
-          onClick={onToggleFileBrowser}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-input transition-colors",
-            showFileBrowser ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
-          )}
-          aria-label="文件"
-          title="文件"
-        >
-          <FolderOpen size={14} />
-        </button>
-      )}
-      {onToggleBrowser && (
-        <button
-          onClick={onToggleBrowser}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-input transition-colors",
-            showBrowser ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
-          )}
-          aria-label="浏览器"
-          title="浏览器"
-        >
-          <Globe size={14} />
-        </button>
-      )}
-      {onToggleRightPanel && (
-        <button
-          onClick={onToggleRightPanel}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-input transition-colors",
-            rightPanelOpen ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
-          )}
-          aria-label="右侧面板"
-          title="右侧面板"
-        >
-          <PanelRight size={14} />
+          <PanelRightClose size={14} />
         </button>
       )}
       {totalTokens > 0 && (
-        <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-muted" title="会话中预估 Token 数">
+        <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-muted" title="会话中预估 Token 数">
           ~{totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : totalTokens}
         </span>
       )}

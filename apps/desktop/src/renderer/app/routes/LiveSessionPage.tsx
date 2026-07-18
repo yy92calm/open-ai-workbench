@@ -197,10 +197,9 @@ export function LiveSessionPage() {
   // gets it back when the user returns.
   const pane = panes[currentId ?? DRAFT_KEY];
   const activeArtifact = pane?.artifact ?? null;
-  const showFiles = !activeArtifact && !!pane?.showFiles;
   const browserUrl = pane?.browserUrl ?? "";
-  const showTerminal = pane?.showTerminal ?? false;
-  const showFileBrowser = pane?.showFileBrowser ?? false;
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightPanelTab, setRightPanelTab] = useState<"context" | "browser" | "terminal" | "files">("context");
 
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
@@ -255,23 +254,16 @@ export function LiveSessionPage() {
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <Topicbar
           title={title}
-          rightPanelOpen={!!(activeArtifact || showFiles || browserUrl || showTerminal || showFileBrowser)}
-          showBrowser={!!browserUrl}
-          showTerminal={showTerminal}
-          showFileBrowser={showFileBrowser}
-          onToggleRightPanel={() => {
+          rightPanelOpen={rightPanelOpen || !!activeArtifact}
+          currentTab={rightPanelTab}
+          onTabChange={(tab) => {
+            setRightPanelOpen(true);
+            setRightPanelTab(tab);
+          }}
+          onClosePanel={() => {
             if (activeArtifact) closeArtifact();
-            else if (browserUrl) setBrowserUrl("");
-            else if (showTerminal) setShowTerminal(false);
-            else if (showFileBrowser) setShowFileBrowser(false);
-            else setShowFiles(!showFiles);
+            else setRightPanelOpen(false);
           }}
-          onToggleBrowser={() => {
-            if (browserUrl) setBrowserUrl("");
-            else setBrowserUrl("https://www.google.com");
-          }}
-          onToggleTerminal={() => setShowTerminal(!showTerminal)}
-          onToggleFileBrowser={() => setShowFileBrowser(!showFileBrowser)}
         />
         <div ref={chatRef} onScroll={onChatScrollWithBtn} className="relative flex-1 overflow-y-auto">
           {/* Minimal floating toolbar at top-right for Files/Notebook */}
@@ -411,20 +403,32 @@ export function LiveSessionPage() {
         </div>
       </div>
 
-      <WorkbenchDock
-        artifact={activeArtifact}
-        showFiles={showFiles}
-        browserUrl={browserUrl}
-        showTerminal={showTerminal}
-        showFileBrowser={showFileBrowser}
-        onCloseArtifact={closeArtifact}
-        onCloseFiles={() => setShowFiles(false)}
-        onBrowserUrlChange={setBrowserUrl}
-        onCloseBrowser={() => setBrowserUrl("")}
-        onCloseTerminal={() => setShowTerminal(false)}
-        onCloseFileBrowser={() => setShowFileBrowser(false)}
-        onEvaluate={onEvaluate}
-      />
+      {rightPanelOpen && !activeArtifact && (
+        <WorkbenchDock
+          artifact={null}
+          browserUrl={browserUrl}
+          tab={rightPanelTab}
+          onCloseArtifact={() => {}}
+          onBrowserUrlChange={setBrowserUrl}
+          onCloseBrowser={() => setRightPanelOpen(false)}
+          onCloseTerminal={() => setRightPanelOpen(false)}
+          onCloseFileBrowser={() => setRightPanelOpen(false)}
+          onEvaluate={onEvaluate}
+        />
+      )}
+      {activeArtifact && (
+        <WorkbenchDock
+          artifact={activeArtifact}
+          browserUrl=""
+          tab={rightPanelTab}
+          onCloseArtifact={closeArtifact}
+          onBrowserUrlChange={() => {}}
+          onCloseBrowser={() => {}}
+          onCloseTerminal={() => {}}
+          onCloseFileBrowser={() => {}}
+          onEvaluate={onEvaluate}
+        />
+      )}
     </div>
   );
 }
