@@ -13,6 +13,7 @@ import { checkForUpdates } from "./updater";
 import { createMainWindow, getMainWindow } from "./windows";
 import { cronEngine, type CreateTaskInput, type UpdateTaskInput } from "./scheduler";
 import { registerTerminalHandlers } from "./terminal";
+import { fetchPageContent, extractText } from "./browser";
 
 export function registerIpcHandlers(): void {
   const log = getLogger();
@@ -232,4 +233,15 @@ export function registerIpcHandlers(): void {
 
   log.info("IPC handlers registered");
   registerTerminalHandlers();
+
+  // ---- Browser ----
+  ipcMain.handle("browser:fetch", async (_e, url: string) => {
+    if (!url || !/^https?:\/\//i.test(url)) return null;
+    try {
+      const html = await fetchPageContent(url);
+      return extractText(html);
+    } catch (err) {
+      return `获取页面内容失败: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  });
 }

@@ -83,6 +83,9 @@ const api = {
   // Window
   openExternal: (url: string) => ipcRenderer.invoke("open-url", url),
 
+  // Browser
+  browserFetch: (url: string) => ipcRenderer.invoke("browser:fetch", url),
+
   // Terminal (event-based streaming)
   on: (channel: string, callback: (...args: unknown[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args);

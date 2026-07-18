@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { ArrowLeft, ArrowRight, Globe, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -21,6 +21,18 @@ export function BrowserPanel({
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const currentUrl = history[historyIndex] || "about:blank";
+
+  // Sync external URL changes (e.g. from agent navigation) into internal state.
+  useEffect(() => {
+    if (url && url !== currentUrl) {
+      setInput(url);
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(url);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
 
   const navigate = useCallback((target: string) => {
     let href = target.trim();

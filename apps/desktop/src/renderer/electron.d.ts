@@ -55,6 +55,9 @@ export interface ElectronAPI {
 
   openExternal: (url: string) => Promise<void>;
 
+  /** Fetch page content from a URL (browser service). */
+  browserFetch: (url: string) => Promise<string | null>;
+
   /** Listen for events from the main process (terminal data streaming). */
   on: (channel: string, callback: (...args: unknown[]) => void) => () => void;
   /** Generic invoke for terminal IPC. */

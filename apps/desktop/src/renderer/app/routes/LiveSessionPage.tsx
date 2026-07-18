@@ -70,7 +70,31 @@ export function LiveSessionPage() {
   const afterTurn = (id: string | null) => {
     if (id && !sessionId) navigate(`/live/${id}`);
   };
-  const onSend = async (text: string) => afterTurn(await sendPrompt(text));
+  const onSend = async (text: string) => {
+    // Browser commands: browser:go <url> or browser:content
+    const browserMatch = text.match(/^browser:(go|content)\s*(.*)?$/i);
+    if (browserMatch) {
+      const cmd = browserMatch[1].toLowerCase();
+      const arg = browserMatch[2]?.trim();
+      if (cmd === "go" && arg) {
+        const url = /^https?:\/\//i.test(arg) ? arg : `https://${arg}`;
+        setBrowserUrl(url);
+        return;
+      }
+      if (cmd === "content") {
+        const targetUrl = arg || browserUrl;
+        if (targetUrl) {
+          const content = await window.electronAPI.browserFetch(targetUrl);
+          // Reply with the content as a user message
+          const msg = content ? `已获取页面内容:\n\n${content}` : `无法获取页面内容: ${targetUrl}`;
+          await sendPrompt(msg);
+          return;
+        }
+      }
+      return;
+    }
+    afterTurn(await sendPrompt(text));
+  };
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
   const onRunCommand = async (name: string, args: string) => afterTurn(await runCommand(name, args));
 
