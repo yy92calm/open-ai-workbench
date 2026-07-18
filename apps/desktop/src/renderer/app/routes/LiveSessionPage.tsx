@@ -233,6 +233,19 @@ export function LiveSessionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockCount]);
 
+  // Listen for browser:panel IPC to open/close the right panel
+  useEffect(() => {
+    return window.electronAPI.on("browser:panel", (_event: unknown, msg: { action: string; url?: string }) => {
+      if (msg.action === "open") {
+        setRightPanelOpen(true);
+        setRightPanelTab("browser");
+        if (msg.url) setBrowserUrl(msg.url);
+      } else if (msg.action === "close") {
+        setRightPanelOpen(false);
+      }
+    });
+  }, [setBrowserUrl]);
+
   // When the agent starts working a notebook (Jupyter MCP), open it beside the
   const autoOpened = useRef(new Set<string>());
   useEffect(() => {

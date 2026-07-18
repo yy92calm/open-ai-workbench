@@ -3,8 +3,26 @@ import { ArrowLeft, ArrowRight, Globe, RefreshCw, Terminal, X } from "lucide-rea
 
 /**
  * Browser panel using Electron's <webview> for full browser automation.
- * The agent can execute JavaScript, navigate, and read page content.
+ * The agent can execute JavaScript, navigate, read page content, interact with
+ * elements, and take screenshots via the MCP server.
  */
+
+interface WebviewElement extends HTMLElement {
+  src: string;
+  loadURL: (url: string) => void;
+  getURL: () => string;
+  getTitle: () => string;
+  goBack: () => void;
+  goForward: () => void;
+  reload: () => void;
+  executeJavaScript: (code: string) => Promise<unknown>;
+  canGoBack: () => boolean;
+  canGoForward: () => boolean;
+  capturePage: () => Promise<{ toDataURL: () => string }>;
+  addEventListener: (event: string, handler: (...args: unknown[]) => void) => void;
+  removeEventListener: (event: string, handler: (...args: unknown[]) => void) => void;
+}
+
 export function BrowserPanel({
   url,
   onUrlChange,
@@ -20,20 +38,7 @@ export function BrowserPanel({
   const [showJsConsole, setShowJsConsole] = useState(false);
   const [jsInput, setJsInput] = useState("");
   const [jsResult, setJsResult] = useState("");
-  const webviewRef = useRef<HTMLElement & {
-    src: string;
-    loadURL: (url: string) => void;
-    getURL: () => string;
-    getTitle: () => string;
-    goBack: () => void;
-    goForward: () => void;
-    reload: () => void;
-    executeJavaScript: (code: string) => Promise<unknown>;
-    canGoBack: () => boolean;
-    canGoForward: () => boolean;
-    addEventListener: (event: string, handler: (...args: unknown[]) => void) => void;
-    removeEventListener: (event: string, handler: (...args: unknown[]) => void) => void;
-  } | null>(null);
+  const webviewRef = useRef<WebviewElement | null>(null);
 
   const currentUrl = history[historyIndex] || "about:blank";
 
@@ -91,13 +96,207 @@ export function BrowserPanel({
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
 
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const historyIndexRef = useRef(historyIndex);
+  historyIndexRef.current = historyIndex;
+  const onUrlChangeRef = useRef(onUrlChange);
+  onUrlChangeRef.current = onUrlChange;
+
   // Listen for commands from the MCP server (via main process IPC)
   useEffect(() => {
-    const handler = (_event: unknown, msg: { cmd: string; url?: string; code?: string }) => {
-      if (msg.cmd === "navigate" && msg.url) {
-        navigateRef.current(msg.url);
-      } else if (msg.cmd === "execute-js" && msg.code && webviewRef.current) {
-        webviewRef.current.executeJavaScript(msg.code).catch(() => {});
+    const handler = async (_event: unknown, msg: { requestId?: string; cmd: string; url?: string; code?: string; selector?: string; text?: string; value?: string; x?: number; y?: number }) => {
+      const wv = webviewRef.current;
+      const sendResponse = (result: unknown) => {
+        if (msg.requestId) {
+          window.electronAPI.browserCommandResponse(msg.requestId, result);
+        }
+      };
+
+      try {
+        switch (msg.cmd) {
+          case "navigate":
+            if (msg.url) navigateRef.current(msg.url);
+            sendResponse({ ok: true });
+            break;
+
+          case "back":
+            wv?.goBack();
+            sendResponse({ ok: true });
+            break;
+
+          case "forward":
+            wv?.goForward();
+            sendResponse({ ok: true });
+            break;
+
+          case "refresh":
+            wv?.reload();
+            sendResponse({ ok: true });
+            break;
+
+          case "execute-js":
+            if (msg.code && wv) {
+              const result = await wv.executeJavaScript(msg.code);
+              sendResponse(result);
+            } else {
+              sendResponse({ error: "No code or webview not ready" });
+            }
+            break;
+
+          case "get-content":
+            if (wv) {
+              const text = await wv.executeJavaScript("document.body?.innerText ?? ''");
+              const title = await wv.executeJavaScript("document.title ?? ''");
+              const content = title ? `标题: ${title}\n\n${text}` : (text as string);
+              sendResponse(content);
+            } else {
+              sendResponse("Webview 还未准备好");
+            }
+            break;
+
+          case "get-html":
+            if (wv) {
+              const html = await wv.executeJavaScript("document.documentElement?.outerHTML ?? ''");
+              sendResponse(html);
+            } else {
+              sendResponse("Webview 还未准备好");
+            }
+            break;
+
+          case "get-url":
+            sendResponse(wv?.getURL() ?? "");
+            break;
+
+          case "get-title":
+            sendResponse(wv?.getTitle() ?? "");
+            break;
+
+          case "click":
+            if (msg.selector && wv) {
+              const result = await wv.executeJavaScript(`
+                (() => {
+                  const el = document.querySelector(${JSON.stringify(msg.selector)});
+                  if (!el) return { error: "Element not found: ${msg.selector}" };
+                  if (el instanceof HTMLElement) el.click();
+                  else return { error: "Element is not clickable" };
+                  return { ok: true };
+                })()
+              `);
+              sendResponse(result);
+            } else {
+              sendResponse({ error: "No selector or webview not ready" });
+            }
+            break;
+
+          case "click-at":
+            if (msg.x !== undefined && msg.y !== undefined && wv) {
+              const result = await wv.executeJavaScript(`
+                (() => {
+                  const el = document.elementFromPoint(${msg.x}, ${msg.y});
+                  if (el) {
+                    if (el instanceof HTMLElement) el.click();
+                    return { ok: true, tag: el.tagName };
+                  }
+                  return { error: "No element at (${msg.x}, ${msg.y})" };
+                })()
+              `);
+              sendResponse(result);
+            } else {
+              sendResponse({ error: "Missing coordinates or webview not ready" });
+            }
+            break;
+
+          case "type-selector":
+            if (msg.selector && msg.text !== undefined && wv) {
+              const result = await wv.executeJavaScript(`
+                (() => {
+                  const el = document.querySelector(${JSON.stringify(msg.selector)});
+                  if (!el) return { error: "Element not found" };
+                  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+                    el.value = ${JSON.stringify(msg.text)};
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    return { ok: true };
+                  }
+                  return { error: "Element is not an input or textarea" };
+                })()
+              `);
+              sendResponse(result);
+            } else {
+              sendResponse({ error: "Missing selector/text or webview not ready" });
+            }
+            break;
+
+          case "select":
+            if (msg.selector && msg.value !== undefined && wv) {
+              const result = await wv.executeJavaScript(`
+                (() => {
+                  const el = document.querySelector(${JSON.stringify(msg.selector)});
+                  if (!el) return { error: "Element not found" };
+                  if (el instanceof HTMLSelectElement) {
+                    el.value = ${JSON.stringify(msg.value)};
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    return { ok: true };
+                  }
+                  return { error: "Element is not a select" };
+                })()
+              `);
+              sendResponse(result);
+            } else {
+              sendResponse({ error: "Missing selector/value or webview not ready" });
+            }
+            break;
+
+          case "hover":
+            if (msg.selector && wv) {
+              const result = await wv.executeJavaScript(`
+                (() => {
+                  const el = document.querySelector(${JSON.stringify(msg.selector)});
+                  if (!el) return { error: "Element not found" };
+                  if (el instanceof HTMLElement) {
+                    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+                    return { ok: true };
+                  }
+                  return { error: "Element is not an HTMLElement" };
+                })()
+              `);
+              sendResponse(result);
+            } else {
+              sendResponse({ error: "No selector or webview not ready" });
+            }
+            break;
+
+          case "scroll":
+            if (wv) {
+              await wv.executeJavaScript(`
+                window.scrollBy({
+                  top: ${msg.y ?? 0},
+                  left: ${msg.x ?? 0},
+                  behavior: 'smooth'
+                });
+              `);
+              sendResponse({ ok: true });
+            } else {
+              sendResponse({ error: "Webview not ready" });
+            }
+            break;
+
+          case "screenshot":
+            if (wv) {
+              const page = await wv.capturePage();
+              const dataUrl = page.toDataURL();
+              sendResponse(dataUrl);
+            } else {
+              sendResponse({ error: "Webview not ready" });
+            }
+            break;
+
+          default:
+            sendResponse({ error: `Unknown command: ${msg.cmd}` });
+        }
+      } catch (err) {
+        sendResponse({ error: err instanceof Error ? err.message : String(err) });
       }
     };
     return window.electronAPI.on("browser:command", handler);

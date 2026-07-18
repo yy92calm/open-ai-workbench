@@ -86,6 +86,10 @@ const api = {
   // Browser
   browserFetch: (url: string) => ipcRenderer.invoke("browser:fetch", url),
 
+  // Browser command response (renderer → main process)
+  browserCommandResponse: (requestId: string, result: unknown) =>
+    ipcRenderer.invoke("browser:command-response", requestId, result),
+
   // Terminal (event-based streaming)
   on: (channel: string, callback: (...args: unknown[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args);
