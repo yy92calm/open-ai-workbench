@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { platform } from "node:os";
 import { BrowserWindow, ipcMain } from "electron";
 
 interface TerminalSession {
@@ -18,26 +19,75 @@ function send(win: BrowserWindow | null, channel: string, data: unknown) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
 
+/** Detect the default shell for the current platform. */
+function defaultShell(): string {
+  if (platform() === "win32") {
+    // Prefer PowerShell 7 (pwsh.exe), then Windows PowerShell (powershell.exe),
+    // then cmd.exe as fallback.
+    const pwsh = process.env.PROGRAMFILES
+      ? `${process.env.PROGRAMFILES}\\PowerShell\\7\\pwsh.exe`
+      : "pwsh.exe";
+    const paths = [pwsh, "powershell.exe", process.env.ComSpec || "cmd.exe"];
+    for (const p of paths) {
+      try {
+        require("fs").accessSync(p);
+        return p;
+      } catch { /* try next */ }
+    }
+    return process.env.ComSpec || "cmd.exe";
+  }
+  return process.env.SHELL || "/bin/bash";
+}
+
+/** Resolve a named shell to an executable path. */
+function resolveShell(name: string): string {
+  if (platform() !== "win32") return name;
+  switch (name) {
+    case "pwsh":
+    case "powershell":
+      return "powershell.exe";
+    case "pwsh7":
+      return "pwsh.exe";
+    case "cmd":
+    default:
+      return process.env.ComSpec || "cmd.exe";
+  }
+}
+
+/** Build the spawn options for the current platform. */
+function shellSpawnOptions(): Parameters<typeof spawn>[2] {
+  const opts: Parameters<typeof spawn>[2] = {
+    stdio: ["pipe", "pipe", "pipe"] as const,
+  };
+
+  if (platform() === "win32") {
+    // Windows: no TERM, use cmd.exe defaults
+    opts.env = { ...process.env };
+  } else {
+    // macOS/Linux: set TERM for proper terminal emulation
+    opts.env = { ...process.env, TERM: "xterm-256color" };
+  }
+
+  return opts;
+}
+
 export function registerTerminalHandlers(): void {
-  ipcMain.handle("terminal:create", (_e, id: string, type: "local" | "ssh") => {
+  ipcMain.handle("terminal:create", (_e, id: string, type: "local" | "ssh", shellName?: string) => {
     const session: TerminalSession = { proc: null, sshClient: null, sshStream: null, shellPid: null };
     sessions.set(id, session);
 
     if (type === "local") {
-      const shell = process.env.SHELL || "/bin/bash";
-      const proc = spawn(shell, [], {
-        env: { ...process.env, TERM: "xterm-256color" },
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+      const shell = shellName ? resolveShell(shellName) : defaultShell();
+      const proc = spawn(shell, [], shellSpawnOptions());
       session.proc = proc;
 
       proc.stdout?.on("data", (data: Buffer) => {
         const win = getWin();
-        send(win, `terminal:data:${id}`, data.toString("base64"));
+        send(win, `terminal:data:${id}`, data.toString("utf-8"));
       });
       proc.stderr?.on("data", (data: Buffer) => {
         const win = getWin();
-        send(win, `terminal:data:${id}`, data.toString("base64"));
+        send(win, `terminal:data:${id}`, data.toString("utf-8"));
       });
       proc.on("exit", (code) => {
         const win = getWin();
@@ -55,9 +105,8 @@ export function registerTerminalHandlers(): void {
   ipcMain.handle("terminal:write", (_e, id: string, data: string) => {
     const session = sessions.get(id);
     if (!session) return;
-    const buf = Buffer.from(data, "base64");
     if (session.proc?.stdin?.writable) {
-      session.proc.stdin.write(buf);
+      session.proc.stdin.write(data);
     }
   });
 
@@ -72,6 +121,13 @@ export function registerTerminalHandlers(): void {
     const session = sessions.get(id);
     if (!session) return;
     if (session.proc) {
+      // On Windows, process.kill() only works with PID, not the process group.
+      // Use taskkill on Windows to ensure the shell tree is terminated.
+      if (platform() === "win32" && session.proc.pid) {
+        try {
+          spawn("taskkill", ["/pid", String(session.proc.pid), "/f", "/t"]);
+        } catch { /* ignore */ }
+      }
       session.proc.kill();
     }
     sessions.delete(id);
