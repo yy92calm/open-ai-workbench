@@ -248,6 +248,7 @@ export function registerIpcHandlers(): void {
 
 /** Start a local HTTP API for the browser MCP server. */
 export function startBrowserApi(): void {
+  const log = getLogger();
   const http = require("node:http");
   const server = http.createServer(async (req: any, res: any) => {
     const sendJson = (data: unknown, status = 200) => {
