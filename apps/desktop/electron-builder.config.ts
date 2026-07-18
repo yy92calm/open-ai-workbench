@@ -26,6 +26,11 @@ const config: Configuration = {
       to: "scripts",
       filter: ["mcp_scheduler.mjs"],
     },
+    {
+      from: "out/main",
+      to: "out/main",
+      filter: ["browser-mcp-server.js"],
+    },
   ],
   mac: {
     category: "public.app-category.developer-tools",
