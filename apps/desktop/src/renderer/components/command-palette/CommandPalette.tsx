@@ -36,6 +36,11 @@ export function CommandPalette() {
         e.preventDefault();
         setOpen(!useUiStore.getState().paletteOpen);
       }
+      // "/" opens the palette when not typing in an input/textarea
+      if (e.key === "/" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setOpen(true);
+      }
       // Consume Esc only when the palette is open — a marked-handled Esc must
       // not also interrupt a running agent turn (LiveSessionPage listens too).
       if (e.key === "Escape" && useUiStore.getState().paletteOpen) {
