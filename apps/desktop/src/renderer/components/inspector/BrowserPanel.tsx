@@ -73,6 +73,18 @@ export function BrowserPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history, historyIndex, onUrlChange]);
 
+  // Listen for commands from the MCP server (via main process IPC)
+  useEffect(() => {
+    const handler = (_event: unknown, msg: { cmd: string; url?: string; code?: string }) => {
+      if (msg.cmd === "navigate" && msg.url) {
+        navigate(msg.url);
+      } else if (msg.cmd === "execute-js" && msg.code && webviewRef.current) {
+        webviewRef.current.executeJavaScript(msg.code).catch(() => {});
+      }
+    };
+    return window.electronAPI.on("browser:command", handler);
+  }, [navigate]);
+
   const navigate = useCallback((target: string) => {
     let href = target.trim();
     if (!href) return;

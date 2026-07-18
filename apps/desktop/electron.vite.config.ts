@@ -10,6 +10,10 @@ export default defineConfig({
     build: {
       rollupOptions: {
         external: ["electron-store", "electron-log", "electron-updater", "electron-context-menu", "electron-window-state", "@anthropic-ai/claude-agent-sdk"],
+        input: {
+          index: r("./src/main/index.ts"),
+          "browser-mcp-server": r("./src/main/browser-mcp-server.ts"),
+        },
       },
     },
   },

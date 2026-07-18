@@ -245,3 +245,59 @@ export function registerIpcHandlers(): void {
     }
   });
 }
+
+/** Start a local HTTP API for the browser MCP server. */
+export function startBrowserApi(): void {
+  const http = require("node:http");
+  const server = http.createServer(async (req: any, res: any) => {
+    const sendJson = (data: unknown, status = 200) => {
+      res.writeHead(status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    };
+
+    const readBody = (): Promise<unknown> => new Promise((resolve) => {
+      let body = "";
+      req.on("data", (chunk: string) => body += chunk);
+      req.on("end", () => {
+        try { resolve(JSON.parse(body)); }
+        catch { resolve({}); }
+      });
+    });
+
+    const win = BrowserWindow.getAllWindows()[0];
+    const wv = win?.webContents;
+
+    try {
+      if (req.method === "POST" && req.url === "/browser/navigate") {
+        const { url } = (await readBody()) as { url: string };
+        if (wv) wv.send("browser:command", { cmd: "navigate", url });
+        sendJson({ ok: true });
+      } else if (req.method === "POST" && req.url === "/browser/content") {
+        const { url } = (await readBody()) as { url?: string };
+        const target = url || "";
+        if (target) {
+          const html = await fetchPageContent(target);
+          sendJson(extractText(html));
+        } else {
+          sendJson("请提供 URL");
+        }
+      } else if (req.method === "POST" && req.url === "/browser/execute-js") {
+        const { code } = (await readBody()) as { code: string };
+        if (wv) wv.send("browser:command", { cmd: "execute-js", code });
+        sendJson({ ok: true, note: "脚本已发送到浏览器执行" });
+      } else if (req.method === "GET" && req.url === "/browser/url") {
+        sendJson("请使用 browser:go 命令导航");
+      } else if (req.method === "GET" && req.url === "/browser/title") {
+        sendJson("浏览器");
+      } else {
+        sendJson({ error: "not found" }, 404);
+      }
+    } catch (err) {
+      sendJson({ error: err instanceof Error ? err.message : String(err) }, 500);
+    }
+  });
+
+  server.listen(43921, "127.0.0.1", () => {
+    log.info(`[browser] MCP API listening on 127.0.0.1:43921`);
+  });
+}
