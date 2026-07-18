@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { PanelRight } from "lucide-react";
+import { Globe, PanelRight } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { DRAFT_KEY } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
@@ -16,11 +16,19 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-/**
- * Minimal topicbar — session title, status dot, compact token count,
- * model switcher, and shortcuts reference.
- */
-export function Topicbar({ title, onToggleRightPanel, rightPanelOpen }: { title?: string; onToggleRightPanel?: () => void; rightPanelOpen?: boolean }) {
+export function Topicbar({
+  title,
+  onToggleRightPanel,
+  onToggleBrowser,
+  rightPanelOpen,
+  showBrowser,
+}: {
+  title?: string;
+  onToggleRightPanel?: () => void;
+  onToggleBrowser?: () => void;
+  rightPanelOpen?: boolean;
+  showBrowser?: boolean;
+}) {
   const status = useRuntimeStore((s) => s.status);
   const currentId = useRuntimeStore((s) => s.currentId);
   const threads = useRuntimeStore((s) => s.threads);
@@ -46,12 +54,25 @@ export function Topicbar({ title, onToggleRightPanel, rightPanelOpen }: { title?
   }, [thread]);
 
   return (
-    <header className="topicbar flex h-9 shrink-0 items-center gap-2.5 border-b border-border bg-surface px-4">
+    <header className="topicbar flex h-9 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
       <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_TONE[status] ?? "bg-muted")} />
       <h1 className="truncate text-sm font-medium text-text">
         {title || "新会话"}
       </h1>
       <div className="flex-1" />
+      {onToggleBrowser && (
+        <button
+          onClick={onToggleBrowser}
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-input transition-colors",
+            showBrowser ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
+          )}
+          aria-label="浏览器"
+          title="浏览器"
+        >
+          <Globe size={14} />
+        </button>
+      )}
       {onToggleRightPanel && (
         <button
           onClick={onToggleRightPanel}

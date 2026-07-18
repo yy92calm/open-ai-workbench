@@ -63,10 +63,11 @@ export interface Thread {
 }
 
 /** What a session's right pane shows: an artifact inspector, the Files
- *  browser, or nothing. The two are mutually exclusive — one pane. */
+ *  browser, browser, or nothing. The three are mutually exclusive. */
 export interface PaneState {
   artifact: ArtifactBlock | null;
   showFiles: boolean;
+  browserUrl: string;
 }
 
 interface RuntimeState {
@@ -103,6 +104,7 @@ interface RuntimeState {
   openArtifact: (a: ArtifactBlock) => void;
   closeArtifact: () => void;
   setShowFiles: (show: boolean) => void;
+  setBrowserUrl: (url: string) => void;
   answerQuestion: (requestId: string, answers: string[][]) => Promise<void>;
   rejectQuestion: (requestId: string) => Promise<void>;
   replyPermission: (requestId: string, reply: PermissionReply) => Promise<void>;
@@ -397,18 +399,26 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   // the artifact inspector and the Files browser mutually exclusive.
   openArtifact: (artifact) =>
     set((s) => ({
-      panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false } },
+      panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false, browserUrl: "" } },
     })),
   closeArtifact: () =>
     set((s) => {
       const key = s.currentId ?? DRAFT_KEY;
-      return { panes: { ...s.panes, [key]: { artifact: null, showFiles: true } } };
+      const prev = s.panes[key];
+      return { panes: { ...s.panes, [key]: { ...prev, artifact: null, showFiles: true } } };
     }),
   setShowFiles: (show) =>
     set((s) => {
       const key = s.currentId ?? DRAFT_KEY;
-      const artifact = show ? null : (s.panes[key]?.artifact ?? null);
-      return { panes: { ...s.panes, [key]: { artifact, showFiles: show } } };
+      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "" };
+      const artifact = show ? null : prev.artifact;
+      return { panes: { ...s.panes, [key]: { ...prev, artifact, showFiles: show, browserUrl: show ? "" : prev.browserUrl } } };
+    }),
+  setBrowserUrl: (url) =>
+    set((s) => {
+      const key = s.currentId ?? DRAFT_KEY;
+      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "" };
+      return { panes: { ...s.panes, [key]: { ...prev, showFiles: false, artifact: null, browserUrl: url } } };
     }),
 
   answerQuestion: async (requestId, answers) => {

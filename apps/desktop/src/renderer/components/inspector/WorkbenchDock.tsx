@@ -4,38 +4,41 @@ import type { ArtifactBlock } from "@workbench/shared";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
 import { ContextPanel } from "@/components/inspector/ContextPanel";
+import { BrowserPanel } from "@/components/inspector/BrowserPanel";
 import { useResizable } from "@/lib/useResizable";
 
 /**
- * Right-side dock: artifact preview or session context panel, with a drag
- * resize handle. Encapsulates the resize logic, refresh button, and panel
- * switching so individual pages don't duplicate it.
- *
- * Inspired by Reasonix's `workbench-dock` layout element.
+ * Right-side dock: artifact preview, session context panel, or browser.
+ * Mutually exclusive — only one shows at a time.
  */
 export function WorkbenchDock({
   artifact,
   showFiles,
+  browserUrl,
   onCloseArtifact,
   onCloseFiles,
+  onBrowserUrlChange,
+  onCloseBrowser,
   onEvaluate,
 }: {
   artifact: ArtifactBlock | null;
   showFiles: boolean;
+  browserUrl: string;
   onCloseArtifact: () => void;
   onCloseFiles: () => void;
+  onBrowserUrlChange: (url: string) => void;
+  onCloseBrowser: () => void;
   onEvaluate?: (expr: string) => void;
 }) {
   const { targetRef, handleProps, isDragging } = useResizable(480, 320, Infinity, true);
   const [paneKey, setPaneKey] = useState(0);
   const refreshPane = useCallback(() => setPaneKey((k) => k + 1), []);
-  const open = !!(artifact || showFiles);
+  const open = !!(artifact || showFiles || browserUrl);
 
   if (!open) return null;
 
   return (
     <>
-      {/* Drag handle to resize the right pane */}
       <div
         {...handleProps}
         className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
@@ -64,6 +67,13 @@ export function WorkbenchDock({
         )}
         {!artifact && showFiles && (
           <ContextPanel onClose={onCloseFiles} />
+        )}
+        {!artifact && !showFiles && browserUrl && (
+          <BrowserPanel
+            url={browserUrl}
+            onUrlChange={onBrowserUrlChange}
+            onClose={onCloseBrowser}
+          />
         )}
       </div>
     </>
