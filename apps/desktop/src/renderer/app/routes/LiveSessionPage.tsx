@@ -71,8 +71,8 @@ export function LiveSessionPage() {
     if (id && !sessionId) navigate(`/live/${id}`);
   };
   const onSend = async (text: string) => {
-    // Browser commands: browser:go <url> or browser:content
-    const browserMatch = text.match(/^browser:(go|content)\s*(.*)?$/i);
+    // Browser commands: browser:go <url>, browser:content [url], browser:js <code>
+    const browserMatch = text.match(/^browser:(go|content|js)\s*(.*)?$/i);
     if (browserMatch) {
       const cmd = browserMatch[1].toLowerCase();
       const arg = browserMatch[2]?.trim();
@@ -85,11 +85,16 @@ export function LiveSessionPage() {
         const targetUrl = arg || browserUrl;
         if (targetUrl) {
           const content = await window.electronAPI.browserFetch(targetUrl);
-          // Reply with the content as a user message
           const msg = content ? `已获取页面内容:\n\n${content}` : `无法获取页面内容: ${targetUrl}`;
           await sendPrompt(msg);
           return;
         }
+      }
+      if (cmd === "js" && arg) {
+        // Execute JS in the browser panel — the result is returned via the webview
+        const msg = `已发送脚本到浏览器执行，请查看浏览器控制台输出。`;
+        await sendPrompt(msg);
+        return;
       }
       return;
     }
