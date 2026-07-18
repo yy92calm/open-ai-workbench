@@ -42,10 +42,7 @@ export function LiveSessionPage() {
     runCommand,
     openArtifact,
     closeArtifact,
-    setShowFiles,
     setBrowserUrl,
-    setShowTerminal,
-    setShowFileBrowser,
     answerQuestion,
     rejectQuestion,
     replyPermission,
@@ -284,13 +281,13 @@ export function LiveSessionPage() {
                 </button>
               ))}
               <button
-                onClick={() => setShowFiles(!showFiles)}
+                onClick={() => { setRightPanelOpen(true); setRightPanelTab("files"); }}
                 className={cn(
                   "flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors",
-                  showFiles ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text",
+                  rightPanelOpen && rightPanelTab === "files" ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text",
                 )}
                 title={`浏览此会话的文件夹${workspace ? ` — ${workspace}` : ""}`}
-                aria-pressed={showFiles}
+                aria-pressed={rightPanelOpen && rightPanelTab === "files"}
               >
                 <FolderOpen size={10} />
                 <span className="max-w-[100px] truncate">
