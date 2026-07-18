@@ -403,20 +403,20 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   // the artifact inspector and the Files browser mutually exclusive.
   openArtifact: (artifact) =>
     set((s) => ({
-      panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false, browserUrl: "", showTerminal: false } },
+      panes: { ...s.panes, [s.currentId ?? DRAFT_KEY]: { artifact, showFiles: false, browserUrl: "", showTerminal: false, showFileBrowser: false } },
     })),
   closeArtifact: () =>
     set((s) => {
       const key = s.currentId ?? DRAFT_KEY;
-      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "", showTerminal: false };
+      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "", showTerminal: false, showFileBrowser: false };
       return { panes: { ...s.panes, [key]: { ...prev, artifact: null, showFiles: true } } };
     }),
   setShowFiles: (show) =>
     set((s) => {
       const key = s.currentId ?? DRAFT_KEY;
-      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "", showTerminal: false };
+      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "", showTerminal: false, showFileBrowser: false };
       const artifact = show ? null : prev.artifact;
-      return { panes: { ...s.panes, [key]: { ...prev, artifact, showFiles: show, browserUrl: show ? "" : prev.browserUrl, showTerminal: show ? false : prev.showTerminal } } };
+      return { panes: { ...s.panes, [key]: { ...prev, artifact, showFiles: show, browserUrl: show ? "" : prev.browserUrl, showTerminal: show ? false : prev.showTerminal, showFileBrowser: show ? false : prev.showFileBrowser } } };
     }),
   setBrowserUrl: (url) =>
     set((s) => {
