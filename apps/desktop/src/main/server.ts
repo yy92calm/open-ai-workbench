@@ -8,6 +8,7 @@ import { app } from "electron";
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { deploySchedulerProfile, startSchedulerApi, stopSchedulerApi } from "./scheduler";
+import { deployBrowserProfile } from "./browser";
 import { enrichedPath } from "./shell_env";
 
 let child: ChildProcess | null = null;
@@ -222,6 +223,9 @@ export async function startSidecar(): Promise<string> {
 
   // Deploy scheduler profile (skill + command + MCP config) with the live API info
   deploySchedulerProfile(cfg, mcpSchedulerScriptPath(), apiInfo);
+
+  // Deploy browser MCP server (auto-register with agent runtime)
+  deployBrowserProfile(cfg);
 
   const env: Record<string, string> = {
     OPENCODE_SERVER_PASSWORD: password,
