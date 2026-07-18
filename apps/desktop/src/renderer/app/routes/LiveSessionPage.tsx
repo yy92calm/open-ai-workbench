@@ -45,6 +45,7 @@ export function LiveSessionPage() {
     setShowFiles,
     setBrowserUrl,
     setShowTerminal,
+    setShowFileBrowser,
     answerQuestion,
     rejectQuestion,
     replyPermission,
@@ -199,6 +200,7 @@ export function LiveSessionPage() {
   const showFiles = !activeArtifact && !!pane?.showFiles;
   const browserUrl = pane?.browserUrl ?? "";
   const showTerminal = pane?.showTerminal ?? false;
+  const showFileBrowser = pane?.showFileBrowser ?? false;
 
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
@@ -253,13 +255,15 @@ export function LiveSessionPage() {
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <Topicbar
           title={title}
-          rightPanelOpen={!!(activeArtifact || showFiles || browserUrl || showTerminal)}
+          rightPanelOpen={!!(activeArtifact || showFiles || browserUrl || showTerminal || showFileBrowser)}
           showBrowser={!!browserUrl}
           showTerminal={showTerminal}
+          showFileBrowser={showFileBrowser}
           onToggleRightPanel={() => {
             if (activeArtifact) closeArtifact();
             else if (browserUrl) setBrowserUrl("");
             else if (showTerminal) setShowTerminal(false);
+            else if (showFileBrowser) setShowFileBrowser(false);
             else setShowFiles(!showFiles);
           }}
           onToggleBrowser={() => {
@@ -267,6 +271,7 @@ export function LiveSessionPage() {
             else setBrowserUrl("https://www.google.com");
           }}
           onToggleTerminal={() => setShowTerminal(!showTerminal)}
+          onToggleFileBrowser={() => setShowFileBrowser(!showFileBrowser)}
         />
         <div ref={chatRef} onScroll={onChatScrollWithBtn} className="relative flex-1 overflow-y-auto">
           {/* Minimal floating toolbar at top-right for Files/Notebook */}
@@ -411,11 +416,13 @@ export function LiveSessionPage() {
         showFiles={showFiles}
         browserUrl={browserUrl}
         showTerminal={showTerminal}
+        showFileBrowser={showFileBrowser}
         onCloseArtifact={closeArtifact}
         onCloseFiles={() => setShowFiles(false)}
         onBrowserUrlChange={setBrowserUrl}
         onCloseBrowser={() => setBrowserUrl("")}
         onCloseTerminal={() => setShowTerminal(false)}
+        onCloseFileBrowser={() => setShowFileBrowser(false)}
         onEvaluate={onEvaluate}
       />
     </div>

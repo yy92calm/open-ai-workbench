@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Globe, PanelRight, Terminal } from "lucide-react";
+import { FolderOpen, Globe, PanelRight, Terminal } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { DRAFT_KEY } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
@@ -21,17 +21,21 @@ export function Topicbar({
   onToggleRightPanel,
   onToggleBrowser,
   onToggleTerminal,
+  onToggleFileBrowser,
   rightPanelOpen,
   showBrowser,
   showTerminal,
+  showFileBrowser,
 }: {
   title?: string;
   onToggleRightPanel?: () => void;
   onToggleBrowser?: () => void;
   onToggleTerminal?: () => void;
+  onToggleFileBrowser?: () => void;
   rightPanelOpen?: boolean;
   showBrowser?: boolean;
   showTerminal?: boolean;
+  showFileBrowser?: boolean;
 }) {
   const status = useRuntimeStore((s) => s.status);
   const currentId = useRuntimeStore((s) => s.currentId);
@@ -75,6 +79,19 @@ export function Topicbar({
           title="终端"
         >
           <Terminal size={14} />
+        </button>
+      )}
+      {onToggleFileBrowser && (
+        <button
+          onClick={onToggleFileBrowser}
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-input transition-colors",
+            showFileBrowser ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
+          )}
+          aria-label="文件"
+          title="文件"
+        >
+          <FolderOpen size={14} />
         </button>
       )}
       {onToggleBrowser && (

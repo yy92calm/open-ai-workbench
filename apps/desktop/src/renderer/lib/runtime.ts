@@ -69,6 +69,7 @@ export interface PaneState {
   showFiles: boolean;
   browserUrl: string;
   showTerminal: boolean;
+  showFileBrowser: boolean;
 }
 
 interface RuntimeState {
@@ -107,6 +108,7 @@ interface RuntimeState {
   setShowFiles: (show: boolean) => void;
   setBrowserUrl: (url: string) => void;
   setShowTerminal: (show: boolean) => void;
+  setShowFileBrowser: (show: boolean) => void;
   answerQuestion: (requestId: string, answers: string[][]) => Promise<void>;
   rejectQuestion: (requestId: string) => Promise<void>;
   replyPermission: (requestId: string, reply: PermissionReply) => Promise<void>;
@@ -425,8 +427,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   setShowTerminal: (show) =>
     set((s) => {
       const key = s.currentId ?? DRAFT_KEY;
-      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "", showTerminal: false };
-      return { panes: { ...s.panes, [key]: { ...prev, artifact: null, showFiles: false, browserUrl: "", showTerminal: show } } };
+      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "", showTerminal: false, showFileBrowser: false };
+      return { panes: { ...s.panes, [key]: { ...prev, artifact: null, showFiles: false, browserUrl: "", showFileBrowser: false, showTerminal: show } } };
+    }),
+  setShowFileBrowser: (show) =>
+    set((s) => {
+      const key = s.currentId ?? DRAFT_KEY;
+      const prev = s.panes[key] ?? { artifact: null, showFiles: false, browserUrl: "", showTerminal: false, showFileBrowser: false };
+      return { panes: { ...s.panes, [key]: { ...prev, artifact: null, showFiles: false, browserUrl: "", showTerminal: false, showFileBrowser: show } } };
     }),
 
   answerQuestion: async (requestId, answers) => {
