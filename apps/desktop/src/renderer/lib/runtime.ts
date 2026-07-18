@@ -907,8 +907,13 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 
   // The send lifecycle (new → input → send → response) is shared by plain
   // prompts, "!" shell commands and "/" slash commands — see performTurn.
-  sendPrompt: (text) =>
-    performTurn(set, get, text, (sid) => withRetry(() => client!.sendPrompt(sid, text)), false),
+  sendPrompt: (text) => {
+    const browserUrl = get().panes[get().currentId ?? DRAFT_KEY]?.browserUrl ?? "";
+    const enriched = browserUrl
+      ? `[当前浏览器页面: ${browserUrl}]\n\n${text}`
+      : text;
+    return performTurn(set, get, enriched, (sid) => withRetry(() => client!.sendPrompt(sid, enriched)), false);
+  },
 
   // No retry for shell/command: re-POSTing would run the command twice.
   runShell: (command) => {
